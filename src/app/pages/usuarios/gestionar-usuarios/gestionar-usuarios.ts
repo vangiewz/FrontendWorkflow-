@@ -4,6 +4,8 @@ import { RouterLink } from '@angular/router';
 import { UsuarioService, UsuarioResponse } from '../../../services/usuario.service';
 import { DepartamentoService, Departamento } from '../../../services/departamento.service';
 import { FormsModule } from '@angular/forms';
+import { ToastService } from '../../../shared/toast/toast.service';
+import { DialogService } from '../../../shared/dialog/dialog.service';
 
 @Component({
   selector: 'app-gestionar-usuarios',
@@ -149,6 +151,8 @@ import { FormsModule } from '@angular/forms';
 export class GestionarUsuariosPage implements OnInit {
   private readonly usuarioService = inject(UsuarioService);
   private readonly departamentoService = inject(DepartamentoService);
+  private readonly toast = inject(ToastService);
+  private readonly dialogService = inject(DialogService);
 
   readonly usuarios = signal<UsuarioResponse[]>([]);
   readonly departamentos = signal<Departamento[]>([]);
@@ -190,53 +194,68 @@ export class GestionarUsuariosPage implements OnInit {
   }
 
   changeTelefono(id: string, currently: string | undefined) {
-    const p = prompt('Ingrese el nuevo teléfono. Déjelo vacío para eliminar.', currently || '');
-    if (p === null) return;
-    this.usuarioService.updateTelefono(id, p).subscribe({
-      next: (res) => {
-        this.usuarios.update(us => us.map(u => u.id === id ? res : u));
-        this.mostrarExito('Teléfono actualizado correctamente');
-      },
-      error: (e) => this.mostrarError(e.error?.error || 'Error actualizando teléfono')
+    this.dialogService.prompt('Cambiar Teléfono', 'Ingrese el nuevo teléfono. Déjelo vacío para eliminar.', currently || '').subscribe(p => {
+      if (p === null) return;
+      this.usuarioService.updateTelefono(id, p).subscribe({
+        next: (res) => {
+          this.usuarios.update(us => us.map(u => u.id === id ? res : u));
+          this.mostrarExito('Teléfono actualizado correctamente');
+        },
+        error: (e) => this.mostrarError(e.error?.error || 'Error actualizando teléfono')
+      });
     });
   }
 
   changePassword(id: string) {
-    const pwd = prompt('Ingrese la nueva contraseña para este usuario (mínimo 6 caracteres):');
-    if (!pwd) return;
-    if (pwd.length < 6) {
-      alert('La contraseña debe tener al menos 6 caracteres');
-      return;
-    }
-
-    this.usuarioService.adminChangePassword(id, pwd).subscribe({
-      next: (res) => this.mostrarExito(res.message),
-      error: (e) => this.mostrarError(e.error?.error || 'Error al cambiar la contraseña')
+    this.dialogService.prompt('Cambiar Contraseña', 'Ingrese la nueva contraseña para este usuario (mínimo 6 caracteres):').subscribe(pwd => {
+      if (pwd === null) return;
+      if (!pwd || pwd.length < 6) {
+        this.toast.error('La contraseña debe tener al menos 6 caracteres');
+        return;
+      }
+  
+      this.usuarioService.adminChangePassword(id, pwd).subscribe({
+        next: (res) => this.toast.success(res.message),
+        error: (e) => this.toast.error(e.error?.error || 'Error al cambiar la contraseña')
+      });
     });
   }
 
   desactivarUsuario(id: string, nombre: string) {
-    if (!confirm(`¿Desactivar a ${nombre}?\nYa no listará dentro de este sistema, ni podrá acceder.`)) return;
-
-    this.usuarioService.deleteUsuario(id).subscribe({
-      next: (res) => {
-        this.mostrarExito(res.message);
-        // Actualizar visualmente la tabla
-        this.usuarios.update(us => us.map(u => u.id === id ? { ...u, isActive: false } : u));
-      },
-      error: (e) => this.mostrarError(e.error?.error || 'Error al desactivar')
+    this.dialogService.confirm(
+      'Desactivar Usuario',
+      `¿Desactivar a ${nombre}?\nYa no listará dentro de este sistema, ni podrá acceder.`,
+      true,
+      'Desactivar'
+    ).subscribe(confirmed => {
+      if (!confirmed) return;
+  
+      this.usuarioService.deleteUsuario(id).subscribe({
+        next: () => {
+          this.toast.success('Usuario desactivado correctamente');
+          this.usuarios.update(us => us.map(u => u.id === id ? { ...u, isActive: false } : u));
+        },
+        error: () => this.toast.error('Error al desactivar el usuario')
+      });
     });
   }
 
   reactivarUsuario(id: string, nombre: string) {
-    if (!confirm(`¿Reactivar a ${nombre}?\nVolverá a tener acceso completo.`)) return;
-
-    this.usuarioService.reactivateUsuario(id).subscribe({
-      next: (res) => {
-        this.mostrarExito(res.message);
-        this.usuarios.update(us => us.map(u => u.id === id ? { ...u, isActive: true } : u));
-      },
-      error: (e) => this.mostrarError(e.error?.error || 'Error al reactivar')
+    this.dialogService.confirm(
+      'Reactivar Usuario',
+      `¿Reactivar a ${nombre}?\nVolverá a tener acceso completo.`,
+      false,
+      'Reactivar'
+    ).subscribe(confirmed => {
+      if (!confirmed) return;
+  
+      this.usuarioService.reactivateUsuario(id).subscribe({
+        next: () => {
+          this.toast.success('Usuario reactivado correctamente');
+          this.usuarios.update(us => us.map(u => u.id === id ? { ...u, isActive: true } : u));
+        },
+        error: () => this.toast.error('Error al reactivar el usuario')
+      });
     });
   }
 

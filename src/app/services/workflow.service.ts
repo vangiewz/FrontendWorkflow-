@@ -8,11 +8,24 @@ export interface WorkflowGeneratedResponse {
 }
 
 export interface PasoGenerado {
-  orden: number;
-  departamentoId: string; // "Cliente" o ID
+  id: string;
+  tipo: 'ACTIVIDAD' | 'DECISION';
+  departamentoId: string | null;
   nombrePaso: string;
-  formularioJson: Record<string, any>;
+  formularioJson: Record<string, any> | null;
+  siguientes: Record<string, string>;
   isCustom?: boolean;
+}
+
+export interface PlantillaWorkflowDTO {
+  id?: string;
+  nombre: string;
+  descripcion: string;
+  categoria: string;
+  costoBase: number;
+  isActive: boolean;
+  formularioCliente: Record<string, any>;
+  pasos: PasoGenerado[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -28,7 +41,23 @@ export class WorkflowService {
     );
   }
 
-  saveWorkflow(workflow: any): Observable<any> {
-    return this.http.post(`${this.apiUrl}/workflows`, workflow);
+  saveWorkflow(workflow: any): Observable<PlantillaWorkflowDTO> {
+    return this.http.post<PlantillaWorkflowDTO>(`${this.apiUrl}/workflows`, workflow);
+  }
+
+  getAllWorkflows(): Observable<PlantillaWorkflowDTO[]> {
+    return this.http.get<PlantillaWorkflowDTO[]>(`${this.apiUrl}/workflows`);
+  }
+
+  getWorkflowById(id: string): Observable<PlantillaWorkflowDTO> {
+    return this.http.get<PlantillaWorkflowDTO>(`${this.apiUrl}/workflows/${id}`);
+  }
+
+  updateWorkflow(id: string, workflow: any): Observable<PlantillaWorkflowDTO> {
+    return this.http.put<PlantillaWorkflowDTO>(`${this.apiUrl}/workflows/${id}`, workflow);
+  }
+
+  toggleActive(id: string): Observable<PlantillaWorkflowDTO> {
+    return this.http.patch<PlantillaWorkflowDTO>(`${this.apiUrl}/workflows/${id}/toggle-active`, {});
   }
 }

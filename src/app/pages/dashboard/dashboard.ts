@@ -1,236 +1,132 @@
-import {
-  Component,
-  ChangeDetectionStrategy,
-  signal,
-  computed,
-  inject,
-  PLATFORM_ID,
-} from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
-import { Router, RouterLink } from '@angular/router';
-import { AuthService, AuthResponse } from '../../services/auth.service';
-import { ButtonComponent } from '../../shared/button/button';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, PLATFORM_ID } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { Router } from '@angular/router';
 import { SidebarComponent } from '../../shared/sidebar/sidebar';
-import { ChangePasswordModalComponent } from '../../shared/change-password-modal/change-password-modal';
+import { AuthService, AuthResponse } from '../../services/auth.service';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [ButtonComponent, RouterLink, SidebarComponent, ChangePasswordModalComponent],
+  standalone: true,
+  imports: [CommonModule, SidebarComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="min-h-screen flex">
-      <!-- Sidebar -->
+    <div class="min-h-screen flex bg-surface-950 font-sans">
       <app-sidebar [isMobile]="false" />
 
-      <!-- Main content -->
-      <div class="flex-1 flex flex-col">
-        <!-- Top bar -->
-        <header
-          class="h-16 border-b border-purple-900/20 bg-surface-900/50 backdrop-blur-sm flex items-center justify-between px-6"
-        >
-          <!-- Mobile menu button -->
-          <button
-            class="lg:hidden text-gray-400 hover:text-white p-2"
-            (click)="toggleMobileSidebar()"
-            aria-label="Abrir menú"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="w-6 h-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="2"
-              aria-hidden="true"
-            >
-              <path d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+      <div class="flex-1 flex flex-col min-w-0">
+        <header class="h-16 border-b border-purple-900/20 bg-surface-900/50 backdrop-blur-sm flex items-center px-6 shrink-0 z-10 sticky top-0">
+          <button class="lg:hidden text-gray-400 hover:text-white p-2 mr-4" (click)="toggleMobileSidebar()" aria-label="Abrir menú">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
           </button>
-
-          <h2 class="text-lg font-semibold text-white">Dashboard</h2>
-
-          <div class="flex items-center gap-4">
-            <span class="hidden sm:inline text-sm text-gray-400">
-              {{ userEmail() }}
-            </span>
-            <app-button variant="ghost" size="sm" (click)="openPasswordModal()">
-              Cambiar Contraseña
-            </app-button>
-            <app-button variant="ghost" size="sm" (click)="logout()">
-              Cerrar Sesión
-            </app-button>
-          </div>
+          <h2 class="text-lg font-semibold text-white tracking-wide">Inicio</h2>
         </header>
 
-        <!-- Modals -->
-        @if (isPasswordModalOpen()) {
-          <app-change-password-modal (closeModal)="closePasswordModal()" />
-        }
-
-        <!-- Mobile sidebar overlay -->
         @if (mobileSidebarOpen()) {
-          <div
-            class="fixed inset-0 z-50 lg:hidden"
-            (click)="toggleMobileSidebar()"
-          >
-            <div class="absolute inset-0 bg-black/60"></div>
+          <div class="fixed inset-0 z-50 lg:hidden" (click)="toggleMobileSidebar()">
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
             <app-sidebar [isMobile]="true" (closeSidebar)="toggleMobileSidebar()" />
           </div>
         }
 
-        <!-- Page content -->
-        <main class="flex-1 p-6 lg:p-8 overflow-auto">
-          <!-- Welcome -->
-          <div class="mb-8">
-            <h1 class="text-2xl sm:text-3xl font-bold text-white mb-2">
-              Bienvenido, {{ userName() }}
-            </h1>
-            <p class="text-gray-400">
-              Panel de control — Rol:
-              <span
-                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-700/20 text-purple-300 border border-purple-700/30"
-              >
-                {{ userRol() }}
-              </span>
-            </p>
-          </div>
-
-          <!-- Stats cards -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            @for (card of dashboardCards; track card.title) {
-              <div
-                class="glass rounded-2xl p-6 hover:border-purple-600/30 transition-all duration-300 group"
-              >
-                <div class="flex items-center justify-between mb-4">
-                  <div
-                    class="w-10 h-10 rounded-xl bg-purple-700/20 flex items-center justify-center group-hover:bg-purple-700/30 transition-colors"
-                  >
-                    <span class="text-lg" aria-hidden="true">{{ card.icon }}</span>
-                  </div>
-                </div>
-                <p
-                  class="text-2xl font-bold text-white mb-1"
-                >
-                  {{ card.value }}
-                </p>
-                <p class="text-sm text-gray-400">{{ card.title }}</p>
-              </div>
-            }
-          </div>
-
-          <!-- Quick actions -->
-          <div class="glass rounded-2xl p-6">
-            <h3 class="text-lg font-semibold text-white mb-4">
-              Acciones rápidas
-            </h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <button
-                class="flex items-center gap-3 p-4 rounded-xl bg-surface-800 border border-surface-600 hover:border-purple-700/40 hover:bg-purple-700/10 transition-all duration-300 text-left group"
-                routerLink="/usuarios"
-              >
-                <div
-                  class="w-10 h-10 rounded-lg bg-purple-700/20 flex items-center justify-center group-hover:bg-purple-700/30 transition-colors"
-                >
-                  <span aria-hidden="true">👥</span>
-                </div>
-                <div>
-                  <p class="text-sm font-medium text-white">Gestionar Usuarios</p>
-                  <p class="text-xs text-gray-500">Añadir o editar empleados</p>
-                </div>
-              </button>
-              @if (userRol() === 'ADMIN') {
-                <a
-                  routerLink="/departamentos"
-                  class="flex items-center gap-3 p-4 rounded-xl bg-surface-800 border border-surface-600 hover:border-purple-700/40 hover:bg-purple-700/10 transition-all duration-300 text-left group"
-                >
-                  <div
-                    class="w-10 h-10 rounded-lg bg-purple-700/20 flex items-center justify-center group-hover:bg-purple-700/30 transition-colors"
-                  >
-                    <span aria-hidden="true">🏢</span>
-                  </div>
-                  <div>
-                    <p class="text-sm font-medium text-white">
-                      Crear Departamento
-                    </p>
-                    <p class="text-xs text-gray-500">Nueva área organizacional</p>
-                  </div>
-                </a>
-              } @else {
-                <button
-                  disabled
-                  class="flex items-center gap-3 p-4 rounded-xl bg-surface-800 border border-surface-600 opacity-50 cursor-not-allowed text-left group"
-                >
-                  <div
-                    class="w-10 h-10 rounded-lg bg-purple-700/20 flex items-center justify-center"
-                  >
-                    <span aria-hidden="true">🏢</span>
-                  </div>
-                  <div>
-                    <p class="text-sm font-medium text-white">
-                      Crear Departamento
-                    </p>
-                    <p class="text-xs text-gray-500">Requiere permisos de Admin</p>
-                  </div>
-                </button>
-              }
-              <a
-                routerLink="/designer"
-                class="flex items-center gap-3 p-4 rounded-xl bg-surface-800 border border-surface-600 hover:border-purple-700/40 hover:bg-purple-700/10 transition-all duration-300 text-left group"
-              >
-                <div
-                  class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center group-hover:bg-emerald-500/30 transition-colors"
-                >
-                  <span aria-hidden="true">🧠</span>
-                </div>
-                <div>
-                  <p class="text-sm font-medium text-white">
-                    Diseñador (IA+Colaborativo)
-                  </p>
-                  <p class="text-xs text-gray-500">Crear flujo con IA y WebSockets</p>
-                </div>
-              </a>
+        <main class="flex-1 overflow-y-auto">
+          <!-- Hero Section -->
+          <section class="relative min-h-[70vh] flex flex-col items-center justify-center text-center px-6 py-20 overflow-hidden">
+            <!-- Background glows -->
+            <div class="absolute inset-0 pointer-events-none select-none">
+              <div class="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-violet-600/10 rounded-full blur-[120px]"></div>
+              <div class="absolute bottom-0 left-1/4 w-[400px] h-[300px] bg-purple-500/8 rounded-full blur-[100px]"></div>
             </div>
-          </div>
+
+            <div class="relative z-10 max-w-4xl mx-auto">
+              <!-- Badge -->
+              <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-bold uppercase tracking-widest mb-8">
+                <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span></span>
+                Sistema de Gestión Institucional
+              </div>
+
+              <!-- Title -->
+              <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white mb-6 leading-tight tracking-tight">
+                Bienvenido,
+                <span class="bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent"> {{ userName() }}</span>
+              </h1>
+
+              <!-- Role badge -->
+              <div class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-800 border border-surface-700 text-sm font-medium text-gray-300 mb-8">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-violet-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 018 0v2"/></svg>
+                Acceso como <span class="font-bold text-violet-300 ml-1">{{ userRol() }}</span>
+              </div>
+
+              <p class="text-lg sm:text-xl text-gray-400 leading-relaxed max-w-2xl mx-auto">
+                Plataforma inteligente de automatización de trámites institucionales. Combina 
+                <span class="text-white font-medium">Inteligencia Artificial</span> con 
+                <span class="text-white font-medium">flujos de trabajo colaborativos</span> para optimizar los procesos administrativos.
+              </p>
+            </div>
+          </section>
+
+          <!-- Objective Cards -->
+          <section class="px-6 pb-16">
+            <div class="max-w-6xl mx-auto">
+              <div class="text-center mb-12">
+                <h2 class="text-2xl sm:text-3xl font-bold text-white mb-3">¿Qué ofrece este sistema?</h2>
+                <p class="text-gray-400 max-w-xl mx-auto text-sm sm:text-base">Cada módulo está diseñado para cubrir un área crítica de la operación institucional.</p>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- CU-01 -->
+                <div class="glass rounded-2xl p-6 group hover:border-violet-500/30 transition-all duration-300">
+                  <div class="w-12 h-12 rounded-xl bg-violet-500/15 flex items-center justify-center mb-4 text-2xl group-hover:scale-110 transition-transform">🔐</div>
+                  <h3 class="text-base font-bold text-white mb-2">Seguridad y Acceso</h3>
+                  <p class="text-sm text-gray-400 leading-relaxed">Autenticación JWT y encriptación BCrypt garantizan que solo actores autorizados operen en el sistema.</p>
+                </div>
+                <!-- CU-02 -->
+                <div class="glass rounded-2xl p-6 group hover:border-violet-500/30 transition-all duration-300">
+                  <div class="w-12 h-12 rounded-xl bg-blue-500/15 flex items-center justify-center mb-4 text-2xl group-hover:scale-110 transition-transform">🏢</div>
+                  <h3 class="text-base font-bold text-white mb-2">Organización Interna</h3>
+                  <p class="text-sm text-gray-400 leading-relaxed">El Administrador gestiona departamentos y funcionarios, estructurando el equipo de trabajo institucional.</p>
+                </div>
+                <!-- CU-03 -->
+                <div class="glass rounded-2xl p-6 group hover:border-violet-500/30 transition-all duration-300">
+                  <div class="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center mb-4 text-2xl group-hover:scale-110 transition-transform">🧠</div>
+                  <h3 class="text-base font-bold text-white mb-2">IA y Automatización</h3>
+                  <p class="text-sm text-gray-400 leading-relaxed">La IA genera automáticamente rutas de trámites y formularios dinámicos a partir de políticas en lenguaje natural.</p>
+                </div>
+                <!-- CU-04/05/06 -->
+                <div class="glass rounded-2xl p-6 group hover:border-violet-500/30 transition-all duration-300">
+                  <div class="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center mb-4 text-2xl group-hover:scale-110 transition-transform">⚙️</div>
+                  <h3 class="text-base font-bold text-white mb-2">Gestión de Trámites</h3>
+                  <p class="text-sm text-gray-400 leading-relaxed">Desde la solicitud del cliente hasta la resolución del funcionario, con seguimiento en tiempo real y notificaciones push.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Tech Stack Footer -->
+          <section class="border-t border-surface-800 px-6 py-10">
+            <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
+              <p class="text-sm text-gray-500 text-center sm:text-left">
+                Construido sobre <span class="text-gray-300 font-medium">Spring Boot</span> · <span class="text-gray-300 font-medium">MongoDB</span> · <span class="text-gray-300 font-medium">Angular</span> · <span class="text-gray-300 font-medium">Flutter</span>
+              </p>
+              <div class="flex items-center gap-3 text-xs text-gray-600">
+                <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
+                Todos los servicios activos
+              </div>
+            </div>
+          </section>
         </main>
       </div>
     </div>
-  `,
+  `
 })
 export class DashboardPage {
   private readonly authService = inject(AuthService);
-  private readonly router = inject(Router);
   private readonly platformId = inject(PLATFORM_ID);
 
-  protected readonly mobileSidebarOpen = signal(false);
-  protected readonly isPasswordModalOpen = signal(false);
+  mobileSidebarOpen = signal(false);
+  private user = signal<AuthResponse | null>(null);
 
-  private readonly user = signal<AuthResponse | null>(null);
-
-  protected readonly userName = computed(
-    () => this.user()?.nombre ?? 'Usuario'
-  );
-  protected readonly userEmail = computed(
-    () => this.user()?.email ?? ''
-  );
-  protected readonly userRol = computed(
-    () => this.user()?.rol ?? ''
-  );
-  protected readonly userInitials = computed(() => {
-    const name = this.user()?.nombre ?? '';
-    return name
-      .split(' ')
-      .map((w) => w[0])
-      .join('')
-      .substring(0, 2)
-      .toUpperCase();
-  });
-
-  protected readonly dashboardCards = [
-    { icon: '📋', value: '0', title: 'Trámites activos' },
-    { icon: '👥', value: '0', title: 'Usuarios' },
-    { icon: '🏢', value: '0', title: 'Departamentos' },
-    { icon: '⚡', value: '0', title: 'Workflows' },
-  ];
+  userName = computed(() => this.user()?.nombre ?? 'Usuario');
+  userRol = computed(() => this.user()?.rol ?? '');
 
   constructor() {
     if (isPlatformBrowser(this.platformId)) {
@@ -238,20 +134,5 @@ export class DashboardPage {
     }
   }
 
-  protected toggleMobileSidebar(): void {
-    this.mobileSidebarOpen.update((v) => !v);
-  }
-
-  protected openPasswordModal(): void {
-    this.isPasswordModalOpen.set(true);
-  }
-
-  protected closePasswordModal(): void {
-    this.isPasswordModalOpen.set(false);
-  }
-
-  protected logout(): void {
-    this.authService.logout();
-    this.router.navigate(['/login']);
-  }
+  toggleMobileSidebar() { this.mobileSidebarOpen.update(v => !v); }
 }
