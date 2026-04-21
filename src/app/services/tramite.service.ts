@@ -31,6 +31,18 @@ export interface ResponderPasoRequest {
   decisionElegida?: string;
 }
 
+export interface AsistenteFormularioRequest {
+  pasoId: string;
+  modo: 'chat' | 'voz';
+  mensaje: string;
+}
+
+export interface AsistenteFormularioResponse {
+  pasoId: string;
+  sugerencia: Record<string, unknown>;
+  observacion: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class TramiteService {
   private readonly http = inject(HttpClient);
@@ -54,5 +66,15 @@ export class TramiteService {
 
   responderPaso(tramiteId: string, request: ResponderPasoRequest): Observable<TramiteDTO> {
     return this.http.post<TramiteDTO>(`${this.apiUrl}/tramites/${tramiteId}/responder`, request);
+  }
+
+  asistirFormulario(
+    tramiteId: string,
+    request: AsistenteFormularioRequest
+  ): Observable<AsistenteFormularioResponse> {
+    return this.http.post<AsistenteFormularioResponse>(
+      `${this.apiUrl}/tramites/${tramiteId}/asistir-formulario`,
+      request
+    );
   }
 }
