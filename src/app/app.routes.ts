@@ -66,7 +66,7 @@ export const routes: Routes = [
           title: 'Analíticas de Cuellos de Botella',
           description: 'El microservicio de IA analiza tiempos históricos y detecta los departamentos con mayor retraso.',
           icon: '📊',
-          disabled: true
+          route: '/analytics'
         }
       ]
     }
@@ -147,6 +147,12 @@ export const routes: Routes = [
     path: 'tramites/:id',
     loadComponent: () =>
       import('./pages/tramites/detalle/tramite-detalle').then((m) => m.TramiteDetallePage),
+    canActivate: [authGuard, roleGuard(['ADMIN', 'FUNCIONARIO'])],
+  },
+  {
+    path: 'analytics',
+    loadComponent: () =>
+      import('./pages/analytics/analytics').then((m) => m.AnalyticsPage),
     canActivate: [authGuard, roleGuard(['ADMIN', 'FUNCIONARIO'])],
   },
 ];

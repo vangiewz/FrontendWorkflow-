@@ -1,7 +1,7 @@
 import { Component, ChangeDetectionStrategy, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { TramiteService, TramiteDTO } from '../../../services/tramite.service';
+import { AsistenteFormularioResponse, TramiteService, TramiteDTO } from '../../../services/tramite.service';
 import { WorkflowService, PasoGenerado, PlantillaWorkflowDTO } from '../../../services/workflow.service';
 import { DepartamentoService, Departamento } from '../../../services/departamento.service';
 import { AuthService } from '../../../services/auth.service';
@@ -91,8 +91,11 @@ import { ClientDataModalComponent } from './components/client-data-modal.compone
                   [canRespond]="canRespondToSelected()"
                   [formAnswers]="getSelectedStepAnswers()"
                   [isSubmitting]="isSubmitting()"
+                [isAssisting]="isAssisting()"
+                [iaPrefill]="aiPrefill()"
                   (opcionSeleccionada)="resolverDecision(selectedStep()!.id, $event)"
                   (formularioEnviado)="completarPaso(selectedStep()!.id, $event)"
+                (asistenciaSolicitada)="asistirFormulario($event)"
                ></app-tramite-form-viewer>
              } @else {
                <!-- Default empty state if En_Progreso but nothing explicitly selected and no pasoActual -->
@@ -132,6 +135,8 @@ export class TramiteDetallePage implements OnInit {
   
   isLoading = signal(true);
   isSubmitting = signal(false);
+  isAssisting = signal(false);
+  aiPrefill = signal<Record<string, unknown> | null>(null);
   
   selectedStepId = signal<string | null>(null);
 
@@ -183,6 +188,7 @@ export class TramiteDetallePage implements OnInit {
 
   selectStep(pasoId: string) {
     this.selectedStepId.set(pasoId);
+    this.aiPrefill.set(null);
   }
 
   isSelectedStepCompleted(): boolean {
@@ -252,6 +258,7 @@ export class TramiteDetallePage implements OnInit {
         // move selected step ahead
         if (updated.pasoActualId) this.selectedStepId.set(updated.pasoActualId);
         else this.selectedStepId.set(null); // finalizado
+        this.aiPrefill.set(null);
 
         this.isSubmitting.set(false);
         if (updated.estadoGlobal === 'FINALIZADO') {
@@ -280,6 +287,7 @@ export class TramiteDetallePage implements OnInit {
         this.tramite.set(updated);
         if (updated.pasoActualId) this.selectedStepId.set(updated.pasoActualId);
         else this.selectedStepId.set(null); // finalizado
+        this.aiPrefill.set(null);
 
         this.isSubmitting.set(false);
         this.toast.success(`Decisión "${opcion}" tomada.`);
@@ -296,6 +304,55 @@ export class TramiteDetallePage implements OnInit {
     try {
       return new Date(dateStr).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     } catch { return dateStr; }
+  }
+
+  asistirFormulario(event: { modo: 'chat' | 'voz'; mensaje: string }) {
+    const tramite = this.tramite();
+    const paso = this.selectedStep();
+    if (!tramite || !paso) {
+      return;
+    }
+
+    if (event.mensaje === 'VOICE_UNSUPPORTED') {
+      this.toast.error('Tu navegador no soporta reconocimiento de voz para esta función.');
+      return;
+    }
+
+    if (event.mensaje.startsWith('VOICE_ERROR:')) {
+      const code = event.mensaje.replace('VOICE_ERROR:', '');
+      this.toast.error(`Error de voz (${code}). Revisa permisos de micrófono y vuelve a intentar.`);
+      return;
+    }
+
+    this.isAssisting.set(true);
+    this.tramiteService
+      .asistirFormulario(tramite.id, {
+        pasoId: paso.id,
+        modo: event.modo,
+        mensaje: event.mensaje
+      })
+      .subscribe({
+        next: (response: AsistenteFormularioResponse) => {
+          this.aiPrefill.set(response.sugerencia ?? {});
+          this.isAssisting.set(false);
+
+          if (response.observacion) {
+            this.toast.success(response.observacion);
+          } else if (!response.sugerencia || Object.keys(response.sugerencia).length === 0) {
+            this.toast.error('IA no pudo inferir campos con ese mensaje. Intenta con más detalle.');
+          } else {
+            this.toast.success('Formulario autocompletado con sugerencias de IA.');
+          }
+        },
+        error: (err: unknown) => {
+          this.isAssisting.set(false);
+          const msg =
+            typeof err === 'object' && err !== null && 'error' in err
+              ? (err as { error?: { error?: string } }).error?.error
+              : null;
+          this.toast.error(msg || 'No se pudo obtener sugerencias de IA para este paso.');
+        }
+      });
   }
 
   private buildTraversalOrder(pasos: PasoGenerado[], tramite: TramiteDTO | null): PasoGenerado[] {
