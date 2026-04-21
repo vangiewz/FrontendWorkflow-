@@ -19,6 +19,88 @@ export const routes: Routes = [
       import('./pages/dashboard/dashboard').then((m) => m.DashboardPage),
     canActivate: [authGuard],
   },
+
+  // ─── Paquete 1: Administración Organizacional (solo ADMIN) ───
+  {
+    path: 'paquetes/admin-organizacional',
+    loadComponent: () =>
+      import('./pages/paquete-hub/paquete-hub').then((m) => m.PaqueteHubPage),
+    canActivate: [authGuard, roleGuard(['ADMIN'])],
+    data: {
+      title: 'Paquete: Administración Organizacional',
+      description: 'Gestiona la estructura interna de la institución: registra funcionarios, asigna departamentos y mantén el directorio del personal autorizado para operar en el sistema.',
+      cards: [
+        {
+          title: 'Gestionar Personal',
+          description: 'Registra, edita y administra los usuarios internos (Funcionarios y Administradores) del sistema.',
+          icon: '👥',
+          route: '/usuarios'
+        },
+        {
+          title: 'Gestionar Departamentos',
+          description: 'Crea y configura las áreas organizacionales a las que se asignarán los funcionarios.',
+          icon: '🏢',
+          route: '/departamentos'
+        }
+      ]
+    }
+  },
+
+  // ─── Paquete 2: Configuración e IA (ADMIN y FUNCIONARIO) ───
+  {
+    path: 'paquetes/configuracion-ia',
+    loadComponent: () =>
+      import('./pages/paquete-hub/paquete-hub').then((m) => m.PaqueteHubPage),
+    canActivate: [authGuard, roleGuard(['ADMIN', 'FUNCIONARIO'])],
+    data: {
+      title: 'Paquete: Configuración e Inteligencia Artificial',
+      description: 'El núcleo del sistema. Diseña políticas de negocio en lenguaje natural y deja que la IA genere automáticamente las rutas de trámites, los formularios JSON y los actores responsables.',
+      cards: [
+        {
+          title: 'Diseñar Políticas de Negocio',
+          description: 'Usa el diseñador colaborativo con IA para crear y gestionar los flujos de trabajo institucionales.',
+          icon: '🧠',
+          route: '/workflows'
+        },
+        {
+          title: 'Analíticas de Cuellos de Botella',
+          description: 'El microservicio de IA analiza tiempos históricos y detecta los departamentos con mayor retraso.',
+          icon: '📊',
+          disabled: true
+        }
+      ]
+    }
+  },
+
+  // ─── Paquete 3: Operación y Gestión de Trámites (ADMIN y FUNCIONARIO) ───
+  {
+    path: 'paquetes/operacion-tramites',
+    loadComponent: () =>
+      import('./pages/paquete-hub/paquete-hub').then((m) => m.PaqueteHubPage),
+    canActivate: [authGuard, roleGuard(['ADMIN', 'FUNCIONARIO'])],
+    data: {
+      title: 'Paquete: Operación y Gestión de Trámites',
+      description: 'Ejecuta y supervisa el ciclo de vida completo de los trámites institucionales: desde la solicitud inicial del cliente hasta la resolución final por parte del funcionario.',
+      cards: [
+        {
+          title: 'Atender y Procesar Trámites',
+          description: 'Accede a la bandeja de tareas, completa formularios dinámicos y avanza los trámites en curso.',
+          icon: '⚙️',
+          route: '/tramites'
+        }
+      ]
+    }
+  },
+
+  // ─── Paquete 4: Seguridad y Control de Acceso (Todos) ───
+  {
+    path: 'paquetes/seguridad-acceso',
+    loadComponent: () =>
+      import('./pages/seguridad/seguridad-hub').then((m) => m.SeguridadHubPage),
+    canActivate: [authGuard],
+  },
+
+  // ─── Rutas funcionales internas (destino de las cards) ───
   {
     path: 'departamentos',
     loadComponent: () =>
@@ -26,7 +108,19 @@ export const routes: Routes = [
     canActivate: [authGuard, roleGuard(['ADMIN'])],
   },
   {
+    path: 'workflows',
+    loadComponent: () =>
+      import('./pages/workflow-designer/listar-workflows/listar-workflows').then((m) => m.ListarWorkflowsPage),
+    canActivate: [authGuard, roleGuard(['ADMIN', 'FUNCIONARIO'])],
+  },
+  {
     path: 'designer',
+    loadComponent: () =>
+      import('./pages/workflow-designer/workflow-designer').then((m) => m.WorkflowDesignerPage),
+    canActivate: [authGuard, roleGuard(['ADMIN'])],
+  },
+  {
+    path: 'designer/:id',
     loadComponent: () =>
       import('./pages/workflow-designer/workflow-designer').then((m) => m.WorkflowDesignerPage),
     canActivate: [authGuard, roleGuard(['ADMIN'])],
@@ -42,5 +136,17 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/usuarios/crear-usuario/crear-usuario').then((m) => m.CrearUsuarioPage),
     canActivate: [authGuard, roleGuard(['ADMIN'])],
+  },
+  {
+    path: 'tramites',
+    loadComponent: () =>
+      import('./pages/tramites/kanban/tramites-kanban').then((m) => m.TramitesKanbanPage),
+    canActivate: [authGuard, roleGuard(['ADMIN', 'FUNCIONARIO'])],
+  },
+  {
+    path: 'tramites/:id',
+    loadComponent: () =>
+      import('./pages/tramites/detalle/tramite-detalle').then((m) => m.TramiteDetallePage),
+    canActivate: [authGuard, roleGuard(['ADMIN', 'FUNCIONARIO'])],
   },
 ];

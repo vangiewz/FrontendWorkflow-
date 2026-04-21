@@ -15,6 +15,22 @@ import { WorkflowStateService } from '../../services/workflow-state.service';
       <div class="p-4 flex flex-col gap-4 overflow-y-auto flex-1">
         
         <div>
+          <div class="mb-4 bg-surface-800 border border-surface-700 p-2 rounded-lg">
+            <h3 class="text-xs text-gray-400 mb-2 font-semibold">Modo de Interacción</h3>
+            <button 
+              (click)="workflowState.toggleDrawArrowMode()"
+              class="w-full p-2 text-xs rounded transition-colors flex items-center justify-center gap-2"
+              [class.bg-emerald-500]="workflowState.isDrawArrowMode()"
+              [class.text-white]="workflowState.isDrawArrowMode()"
+              [class.bg-surface-700]="!workflowState.isDrawArrowMode()"
+              [class.text-gray-400]="!workflowState.isDrawArrowMode()"
+              [class.hover:bg-surface-600]="!workflowState.isDrawArrowMode()"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+              {{ workflowState.isDrawArrowMode() ? 'Dibujo de Flechas' : 'Puntero / Editor' }}
+            </button>
+          </div>
+
           <h3 class="text-xs text-gray-400 mb-2">Nodos UML</h3>
           <div class="grid grid-cols-1 gap-2">
             <div 
@@ -24,6 +40,14 @@ import { WorkflowStateService } from '../../services/workflow-state.service';
             >
               <div class="w-6 h-4 rounded border-2 border-purple-500 bg-transparent"></div>
               Actividad
+            </div>
+            <div 
+              draggable="true"
+              (dragstart)="onDragStart($event, 'Decisión')"
+              class="bg-surface-800 border border-surface-700 p-3 rounded-lg text-xs text-center text-gray-300 cursor-grab active:cursor-grabbing hover:border-amber-500 hover:text-amber-400 transition-colors flex flex-col items-center gap-2"
+            >
+              <div class="w-4 h-4 rounded-sm border-2 border-amber-500 bg-transparent rotate-45 mt-1 mb-1"></div>
+              Decisión
             </div>
           </div>
         </div>

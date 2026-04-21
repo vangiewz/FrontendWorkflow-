@@ -1,6 +1,6 @@
 import { Component, ChangeDetectionStrategy, input, computed } from '@angular/core';
 
-type ButtonVariant = 'primary' | 'outline' | 'ghost';
+type ButtonVariant = 'primary' | 'outline' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 @Component({
@@ -42,6 +42,8 @@ export class ButtonComponent {
         'border-2 border-purple-700 text-purple-300 hover:bg-purple-700/20 hover:text-white active:scale-95',
       ghost:
         'text-purple-300 hover:text-white hover:bg-white/5 active:scale-95',
+      danger:
+        'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30 active:scale-95',
     };
 
     const disabledClasses = 'opacity-50 cursor-not-allowed pointer-events-none';

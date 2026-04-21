@@ -4,10 +4,51 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { UsuarioService } from '../../../services/usuario.service';
 import { DepartamentoService, Departamento } from '../../../services/departamento.service';
+import { CreateUsuarioRequest } from '../../../services/usuario.service';
 import { ButtonComponent } from '../../../shared/button/button';
+import { ToastService } from '../../../shared/toast/toast.service';
 import { RouterLink } from '@angular/router';
-// @ts-ignore
-import * as generator from 'generate-password-browser';
+
+const AMBIGUOUS_CHARS = new Set(['0', 'O', 'o', '1', 'l', 'I']);
+const LOWERCASE_CHARS = 'abcdefghjkmnpqrstuvwxyz';
+const UPPERCASE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ';
+const NUMBER_CHARS = '23456789';
+const SYMBOL_CHARS = '!@#$%^&*()-_=+[]{}<>?';
+const ALL_ALLOWED_CHARS = `${LOWERCASE_CHARS}${UPPERCASE_CHARS}${NUMBER_CHARS}${SYMBOL_CHARS}`;
+
+function randomIndex(max: number): number {
+  const bytes = new Uint32Array(1);
+  crypto.getRandomValues(bytes);
+  return bytes[0] % max;
+}
+
+function randomChar(pool: string): string {
+  return pool[randomIndex(pool.length)];
+}
+
+function shuffleChars(chars: string[]): string[] {
+  const copy = [...chars];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = randomIndex(i + 1);
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function generateSecurePassword(length = 12): string {
+  const size = Math.max(length, 8);
+  const required = [
+    randomChar(LOWERCASE_CHARS),
+    randomChar(UPPERCASE_CHARS),
+    randomChar(NUMBER_CHARS),
+    randomChar(SYMBOL_CHARS)
+  ];
+
+  const rest = Array.from({ length: size - required.length }, () => randomChar(ALL_ALLOWED_CHARS));
+  const generated = shuffleChars([...required, ...rest]).join('');
+
+  return [...generated].filter((ch) => !AMBIGUOUS_CHARS.has(ch)).join('');
+}
 
 @Component({
   selector: 'app-crear-usuario',
@@ -131,6 +172,7 @@ export class CrearUsuarioPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly deptoService = inject(DepartamentoService);
   private readonly usuarioService = inject(UsuarioService);
+  private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
 
   departamentos = signal<Departamento[]>([]);
@@ -158,15 +200,7 @@ export class CrearUsuarioPage implements OnInit {
   }
 
   generatePassword() {
-    const pwd = generator.generate({
-      length: 12,
-      numbers: true,
-      symbols: true,
-      uppercase: true,
-      lowercase: true,
-      excludeSimilarCharacters: true,
-      strict: true
-    });
+    const pwd = generateSecurePassword(12);
     this.userForm.patchValue({ password: pwd });
     this.showPassword.set(true); // Mostrar contraseña recién generada
   }
@@ -180,7 +214,14 @@ export class CrearUsuarioPage implements OnInit {
     this.isSubmitting.set(true);
     this.errorMessage.set(null);
 
-    const payload = this.userForm.value as any;
+    const payload: CreateUsuarioRequest = {
+      email: this.userForm.controls.email.value ?? '',
+      nombre: this.userForm.controls.nombre.value ?? '',
+      password: this.userForm.controls.password.value ?? undefined,
+      rol: this.userForm.controls.rol.value ?? 'FUNCIONARIO',
+      telefono: this.userForm.controls.telefono.value ?? undefined,
+      departamentoId: this.userForm.controls.departamentoId.value ?? undefined
+    };
     // Si envían string vacío para departamento, lo quitamos para no fallar constraints si no lo pide
     if (!payload.departamentoId) {
       payload.departamentoId = undefined;
@@ -188,7 +229,7 @@ export class CrearUsuarioPage implements OnInit {
 
     this.usuarioService.createUsuario(payload).subscribe({
       next: () => {
-        alert("Usuario creado exitosamente!");
+        this.toast.success("Usuario creado exitosamente!");
         this.router.navigate(['/usuarios']);
       },
       error: (e) => {

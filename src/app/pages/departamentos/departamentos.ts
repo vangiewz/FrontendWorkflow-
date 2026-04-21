@@ -14,6 +14,8 @@ import {
 import { DepartamentoService, Departamento } from '../../services/departamento.service';
 import { ButtonComponent } from '../../shared/button/button';
 import { RouterLink } from '@angular/router';
+import { ToastService } from '../../shared/toast/toast.service';
+import { DialogService } from '../../shared/dialog/dialog.service';
 
 @Component({
   selector: 'app-departamentos',
@@ -170,6 +172,8 @@ import { RouterLink } from '@angular/router';
 export class DepartamentosPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly departamentoService = inject(DepartamentoService);
+  private readonly toast = inject(ToastService);
+  private readonly dialogService = inject(DialogService);
 
   readonly departamentoForm = this.fb.group({
     nombre: ['', [Validators.required, Validators.minLength(2)]],
@@ -254,24 +258,29 @@ export class DepartamentosPage implements OnInit {
         setTimeout(() => this.successMessage.set(''), 3000);
       },
       error: (err) => {
-        alert(err.error?.error || 'Error al actualizar departamento');
+        this.toast.error(err.error?.error || 'Error al actualizar departamento');
       }
     });
   }
 
   deleteDepartamento(id: string, nombre: string): void {
-    if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente el departamento '${nombre}'?\n¡Esta acción no se puede deshacer!`)) return;
+    this.dialogService.confirm(
+      'Eliminar Departamento',
+      `¿Estás seguro de que deseas eliminar permanentemente el departamento '${nombre}'?\n¡Esta acción no se puede deshacer!`,
+      true,
+      'Eliminar'
+    ).subscribe(confirmed => {
+      if (!confirmed) return;
 
-    this.departamentoService.deleteDepartamento(id).subscribe({
-      next: () => {
-        this.departamentos.update(depts => depts.filter(d => d.id !== id));
-        this.successMessage.set(`Departamento eliminado correctamente.`);
-        setTimeout(() => this.successMessage.set(''), 3000);
-      },
-      error: (err) => {
-        // Mostramos el alert porque suele ser por constraint validation
-        alert(err.error?.error || 'Error al eliminar departamento (¿Aún tiene usuarios asignados?)');
-      }
+      this.departamentoService.deleteDepartamento(id).subscribe({
+        next: () => {
+          this.departamentos.update(depts => depts.filter(d => d.id !== id));
+          this.toast.success(`Departamento eliminado correctamente.`);
+        },
+        error: (err) => {
+          this.toast.error(err.error?.error || 'Error al eliminar departamento (¿Aún tiene usuarios asignados?)');
+        }
+      });
     });
   }
 }

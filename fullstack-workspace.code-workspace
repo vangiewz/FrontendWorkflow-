@@ -1,0 +1,17 @@
+{
+  "folders": [
+    {
+      "name": "frontend",
+      "path": "."
+    },
+    {
+      "name": "backend",
+      "path": "../backend"
+    },
+    {
+      "name": "movil_workflow",
+      "path": "../movil_workflow"
+    }
+  ],
+  "settings": {}
+}

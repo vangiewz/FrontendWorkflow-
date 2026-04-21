@@ -42,6 +42,10 @@ export class UsuarioService {
     return this.http.get<UsuarioResponse[]>(this.apiUrl);
   }
 
+  getUsuarioById(id: string): Observable<UsuarioResponse> {
+    return this.http.get<UsuarioResponse>(`${this.apiUrl}/${id}`);
+  }
+
   updateRol(id: string, rol: string): Observable<UsuarioResponse> {
     return this.http.patch<UsuarioResponse>(`${this.apiUrl}/${id}/rol`, { rol });
   }

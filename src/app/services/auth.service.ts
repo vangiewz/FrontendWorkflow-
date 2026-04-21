@@ -11,9 +11,11 @@ export interface LoginRequest {
 
 export interface AuthResponse {
   token: string;
+  id: string;
   email: string;
   nombre: string;
   rol: string;
+  departamentoId: string | null;
   tipoUsuario: string;
 }
 

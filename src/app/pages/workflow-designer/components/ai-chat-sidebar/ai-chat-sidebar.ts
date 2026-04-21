@@ -4,11 +4,14 @@ import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { WorkflowStateService } from '../../services/workflow-state.service';
 import { WorkflowService } from '../../../../services/workflow.service';
 import { ButtonComponent } from '../../../../shared/button/button';
+import { JsonFormBuilderComponent } from '../json-form-builder/json-form-builder';
+import { ToastService } from '../../../../shared/toast/toast.service';
+import { DialogService } from '../../../../shared/dialog/dialog.service';
 
 @Component({
   selector: 'app-ai-chat-sidebar',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ButtonComponent],
+  imports: [CommonModule, ReactiveFormsModule, ButtonComponent, JsonFormBuilderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div 
@@ -17,7 +20,7 @@ import { ButtonComponent } from '../../../../shared/button/button';
       [style.borderLeftWidth]="workflowState.isChatExpanded() ? '1px' : '0px'"
       [style.overflow]="'hidden'"
     >
-      <div class="p-4 flex flex-col w-[320px] h-full gap-4">
+      <div class="p-4 flex flex-col w-[320px] h-full gap-5">
         
         <!-- Header con TABS -->
         <div class="flex justify-between items-center mb-2">
@@ -68,15 +71,36 @@ import { ButtonComponent } from '../../../../shared/button/button';
               [readonly]="paso.isCustom"
             >
 
-            @if (paso.nombrePaso !== 'Notificación recibida') {
-              <label class="text-xs text-gray-400 mt-2">Formulario (Esquema JSON) - Documento requerido en este paso</label>
-              <textarea 
-                [formControl]="editFormCtrl"
-                rows="14"
-                class="w-full font-mono bg-surface-800 border border-surface-700 rounded-lg p-3 text-xs text-emerald-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all resize-none"
-              ></textarea>
+            @if (!paso.isCustom) {
+               <label class="text-xs text-gray-400 mt-3 block">Asignado a (Departamento / Cliente)</label>
+               <select [formControl]="editDeptoCtrl" class="w-full bg-surface-800 border border-surface-700 rounded-lg p-2 text-sm text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all mt-1 appearance-none mb-4">
+                  <option value="null">Cliente (Usuario Externo)</option>
+                  @for (depto of workflowState.departamentos(); track depto.id) {
+                     <option [value]="depto.id">{{ depto.nombre }}</option>
+                  }
+               </select>
+            }
 
-              <app-button variant="primary" size="sm" class="w-full mt-2" (click)="guardarPropiedades()">
+            @if (paso.tipo === 'DECISION') {
+              <div class="mt-4 p-4 text-center bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                <p class="text-xs font-semibold text-amber-500">Nodo de Decisión Condicional</p>
+                <p class="text-[10px] text-gray-400 mt-2">No recibe formulario de entrada porque deduce la condición en base al paso anterior.</p>
+              </div>
+              <app-button variant="primary" size="sm" class="w-full mt-4" (click)="guardarPropiedades()">
+                Guardar Propiedades
+              </app-button>
+            } @else if (paso.nombrePaso !== 'Notificación recibida') {
+              <div class="mt-2 py-4 border-t border-surface-800">
+                 <h3 class="text-xs font-semibold text-emerald-400 mb-1">Formulario del Departamento</h3>
+                 <p class="text-[10px] text-gray-400 mb-3">Define los datos requeridos para que este paso sea validado o completado.</p>
+                 
+                 <app-json-form-builder 
+                    [schema]="editFormCtrl.value" 
+                    (schemaChange)="editFormCtrl.setValue($event)">
+                 </app-json-form-builder>
+              </div>
+
+              <app-button variant="primary" size="sm" class="w-full mt-4" (click)="guardarPropiedades()">
                 Guardar Propiedades
               </app-button>
             } @else {
@@ -87,12 +111,6 @@ import { ButtonComponent } from '../../../../shared/button/button';
 
             @if (!paso.isCustom) {
               <div class="flex gap-2 w-full mt-2">
-                <button class="bg-surface-800 border border-surface-700 hover:bg-surface-700 text-gray-300 p-2 rounded flex-1 flex justify-center items-center transition-colors" (click)="moverPaso(-1)" title="Mover un paso antes">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
-                </button>
-                <button class="bg-surface-800 border border-surface-700 hover:bg-surface-700 text-gray-300 p-2 rounded flex-1 flex justify-center items-center transition-colors" (click)="moverPaso(1)" title="Mover un paso después">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                </button>
                 <button class="bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/40 text-red-400 p-2 rounded flex-1 flex justify-center items-center transition-colors" (click)="eliminarPaso()" title="Eliminar actividad">
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 </button>
@@ -108,42 +126,46 @@ import { ButtonComponent } from '../../../../shared/button/button';
               placeholder="Ej. Solicitud de Vacaciones"
             >
 
-            <label class="text-xs text-gray-400 mt-2">Descripción del Trámite</label>
-            <textarea 
-              [formControl]="globalDescCtrl"
-              rows="4"
-              class="w-full bg-surface-800 border border-surface-700 rounded-lg p-3 text-sm text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all resize-none mb-2"
-              placeholder="Breve descripción del alcance..."
-            ></textarea>
-
-            <label class="text-xs text-gray-400 mt-2">Categoría</label>
-            <select
-                [formControl]="globalCategoriaCtrl"
-                class="w-full bg-surface-800 border border-surface-700 rounded-lg p-2 text-sm text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all mb-2 appearance-none">
-                <option value="INTERNO">Interno (Sin Costo Inicial)</option>
-                <option value="EXTERNO">Externo</option>
-            </select>
-
-            <label class="text-xs text-gray-400 mt-2">Costo Base Inicial</label>
+            <label class="text-xs text-gray-400">Descripción del Trámite</label>
             <input 
-                [formControl]="globalCostoBaseCtrl"
-                type="number"
-                [readOnly]="globalCategoriaCtrl.value === 'INTERNO'"
-                class="w-full bg-surface-800 border border-surface-700 rounded-lg p-2 text-sm text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all mb-2"
-                [class.opacity-50]="globalCategoriaCtrl.value === 'INTERNO'"
-                [class.cursor-not-allowed]="globalCategoriaCtrl.value === 'INTERNO'"
-                [title]="globalCategoriaCtrl.value === 'INTERNO' ? 'Trámites internos no tienen costo base.' : 'Costo del trámite externo.'"
+              [formControl]="globalDescCtrl"
+              type="text"
+              class="w-full bg-surface-800 border border-surface-700 rounded-lg p-2 text-sm text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all mb-2"
+              placeholder="Breve descripción del alcance..."
             >
 
-            <label class="text-xs text-gray-400 mt-2">Formulario Inicial del Cliente (JSON)</label>
-            <textarea 
-              [formControl]="globalFormClienteCtrl"
-              rows="8"
-              class="w-full font-mono bg-surface-800 border border-surface-700 rounded-lg p-3 text-xs text-emerald-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all resize-none mb-2"
-              placeholder="{}"
-            ></textarea>
+            <div class="grid grid-cols-2 gap-3 mb-2">
+              <div>
+                <label class="text-xs text-gray-400">Categoría</label>
+                <select
+                    [formControl]="globalCategoriaCtrl"
+                    class="w-full bg-surface-800 border border-surface-700 rounded-lg p-2 text-sm text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all mt-1 appearance-none">
+                    <option value="INTERNO">Interno</option>
+                    <option value="EXTERNO">Externo</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Costo Inicial</label>
+                <input 
+                    [formControl]="globalCostoBaseCtrl"
+                    type="number"
+                    class="w-full bg-surface-800 border border-surface-700 rounded-lg p-2 text-sm text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all mt-1"
+                    [title]="globalCategoriaCtrl.value === 'INTERNO' ? 'Trámites internos asumen costo 0 por defecto, pero puede ajustarse.' : 'Costo del trámite externo.'"
+                >
+              </div>
+            </div>
 
-            <app-button variant="primary" size="sm" class="w-full mt-2" (click)="guardarMetadataGlobal()">
+            <div class="mt-4 pt-4 border-t border-surface-800">
+               <h3 class="text-xs font-semibold text-emerald-400 mb-1">Formulario Inicial del Cliente</h3>
+               <p class="text-[10px] text-gray-400 mb-3">Estos son los datos iniciales que el ciudadano/cliente deberá proporcionar para arrancar el trámite.</p>
+               
+               <app-json-form-builder 
+                  [schema]="globalFormClienteCtrl.value" 
+                  (schemaChange)="globalFormClienteCtrl.setValue($event)">
+               </app-json-form-builder>
+            </div>
+
+            <app-button variant="primary" size="sm" class="w-full mt-6 mb-4" (click)="guardarMetadataGlobal()">
               Actualizar Metadatos
             </app-button>
 
@@ -164,6 +186,8 @@ export class AiChatSidebarComponent {
   workflowState = inject(WorkflowStateService);
   private workflowService = inject(WorkflowService);
   private fb = inject(FormBuilder);
+  private toast = inject(ToastService);
+  private dialogService = inject(DialogService);
   
   // TABS State
   activeTab = signal<'chat' | 'propiedades'>('chat');
@@ -174,14 +198,15 @@ export class AiChatSidebarComponent {
 
   // Edit Forms
   editNombreCtrl = this.fb.control('');
-  editFormCtrl = this.fb.control('');
+  editDeptoCtrl = this.fb.control<string>('null');
+  editFormCtrl = this.fb.control<any>({});
 
   // Global Config form
   globalNombreCtrl = this.fb.control('');
   globalDescCtrl = this.fb.control('');
   globalCategoriaCtrl = this.fb.control('INTERNO');
   globalCostoBaseCtrl = this.fb.control(0);
-  globalFormClienteCtrl = this.fb.control('');
+  globalFormClienteCtrl = this.fb.control<any>({});
 
   constructor() {
     // Si la categoría cambia a INTERNO, entonces resetea el costo base a 0
@@ -197,21 +222,22 @@ export class AiChatSidebarComponent {
       if (selected) {
         this.activeTab.set('propiedades');
         this.editNombreCtrl.setValue(selected.nombrePaso);
-        this.editFormCtrl.setValue(JSON.stringify(selected.formularioJson || {}, null, 2));
+        this.editDeptoCtrl.setValue(String(selected.departamentoId || 'null'));
+        this.editFormCtrl.setValue(selected.formularioJson || {});
       } else {
         // Populate global config
         this.globalNombreCtrl.setValue(this.workflowState.workflowNombre());
         this.globalDescCtrl.setValue(this.workflowState.workflowDescripcion());
         this.globalCategoriaCtrl.setValue(this.workflowState.workflowCategoria(), { emitEvent: false });
         this.globalCostoBaseCtrl.setValue(this.workflowState.workflowCostoBase());
-        this.globalFormClienteCtrl.setValue(JSON.stringify(this.workflowState.formularioCliente() || {}, null, 2));
+        this.globalFormClienteCtrl.setValue(this.workflowState.formularioCliente() || {});
       }
     });
   }
 
   guardarMetadataGlobal() {
     try {
-      const parsedForm = JSON.parse(this.globalFormClienteCtrl.value || '{}');
+      const parsedForm = this.globalFormClienteCtrl.value || {};
       const n = this.globalNombreCtrl.value || 'Nuevo Trámite';
       const d = this.globalDescCtrl.value || '';
       const c = this.globalCategoriaCtrl.value || 'INTERNO';
@@ -220,9 +246,9 @@ export class AiChatSidebarComponent {
       this.workflowState.setWorkflowMetadata(n, d, c, costo);
       this.workflowState.setFormularioCliente(parsedForm);
       
-      alert('Metadatos globales y formulario del cliente guardados temporalmente en el diseñador.');
+      this.toast.success('Metadatos globales y formulario del cliente actualizados.');
     } catch (e) {
-      alert('El JSON del Formulario del Cliente es inválido. Por favor revisa la sintaxis.');
+      this.toast.error('Error guardando metadatos.');
     }
   }
 
@@ -231,7 +257,7 @@ export class AiChatSidebarComponent {
     if (!selected) return;
 
     try {
-      const updatedForm = JSON.parse(this.editFormCtrl.value || '{}');
+      const updatedForm = this.editFormCtrl.value || {};
 
       // Caso Especial: Formulario inamovible de Cliente Global
       if ((selected as any).isCustom) {
@@ -240,64 +266,59 @@ export class AiChatSidebarComponent {
            const copy = [...this.workflowState.pasos()];
            this.workflowState.setPasos(copy); // Truco para forzar redibujado
            this.workflowState.selectPaso(null);
-           alert("Formulario base del Cliente actualizado exitosamente.");
+           this.toast.success("Formulario base del Cliente actualizado exitosamente.");
         }
         return;
       }
 
       // Caso Normal: Actividades Dinámicas
       const updatedNombre = this.editNombreCtrl.value || selected.nombrePaso;
+      const updatedDepto = this.editDeptoCtrl.value === 'null' ? null : this.editDeptoCtrl.value;
       const pasos = [...this.workflowState.pasos()];
-      const index = pasos.findIndex(p => p.nombrePaso === selected.nombrePaso);
+      const index = pasos.findIndex(p => p.id === (selected as any).id);
       if (index !== -1) {
-        pasos[index] = { ...pasos[index], nombrePaso: updatedNombre, formularioJson: updatedForm };
+        const isDesc = selected.tipo === 'DECISION';
+        pasos[index] = { ...pasos[index], nombrePaso: updatedNombre, departamentoId: updatedDepto, formularioJson: isDesc ? null : updatedForm };
         // Trigger visual engine rebuild by updating state
         this.workflowState.setPasos(pasos);
         // Clear selection to avoid loops
         this.workflowState.selectPaso(null);
       }
     } catch (e) {
-      alert('El JSON del formulario es inválido. Por favor, asegúrese de usar comillas dobles y que parezca un objeto TypeScript.');
+      this.toast.error('Error guardando el formulario.');
     }
   }
-  moverPaso(offset: number) {
-    const selected = this.workflowState.selectedPaso();
-    if (!selected) return;
-    
-    let pasos = [...this.workflowState.pasos()];
-    pasos.sort((a,b) => a.orden - b.orden);
-    const index = pasos.findIndex(p => p.nombrePaso === selected.nombrePaso);
-    
-    if (index !== -1) {
-      const targetIndex = index + offset;
-      if (targetIndex >= 0 && targetIndex < pasos.length) {
-        // Intercambiar orden matemático
-        const currentOrden = pasos[index].orden;
-        pasos[index].orden = pasos[targetIndex].orden;
-        pasos[targetIndex].orden = currentOrden;
-        
-        this.workflowState.setPasos(pasos); // Desencadena redibujado visual
-      }
-    }
-  }
-
   eliminarPaso() {
     const selected = this.workflowState.selectedPaso();
     if (!selected) return;
     
-    const confirmDelete = confirm(`¿Estás seguro de que deseas eliminar la actividad "${selected.nombrePaso}"?`);
-    if (confirmDelete) {
-      let pasos = [...this.workflowState.pasos()];
-      pasos = pasos.filter(p => p.nombrePaso !== selected.nombrePaso);
-      
-      // Re-indexar ordenes para que no se arruine la lógica secuencial
-      pasos.sort((a,b) => a.orden - b.orden);
-      pasos.forEach((p, i) => p.orden = i + 1);
-      
-      this.workflowState.selectPaso(null);
-      this.workflowState.setPasos(pasos); // Desencadena redibujado visual, borrando el nodo. Si era el único nodo de un carril, el carril también muere.
-      this.activeTab.set('chat');
-    }
+    this.dialogService.confirm(
+      'Eliminar Actividad',
+      `¿Estás seguro de que deseas eliminar "${selected.nombrePaso}"?`,
+      true,
+      'Eliminar'
+    ).subscribe(confirmDelete => {
+      if (confirmDelete) {
+        let pasos = [...this.workflowState.pasos()];
+        // Remove the step
+        pasos = pasos.filter(p => p.id !== selected.id);
+        
+        // Remove trailing references in other steps' "siguientes" map
+        pasos.forEach(p => {
+            if (p.siguientes) {
+                Object.keys(p.siguientes).forEach(k => {
+                    if (p.siguientes[k] === selected.id) {
+                        delete p.siguientes[k];
+                    }
+                });
+            }
+        });
+        
+        this.workflowState.selectPaso(null);
+        this.workflowState.setPasos(pasos); // Desencadena redibujado visual
+        this.activeTab.set('chat');
+      }
+    });
   }
 
 
@@ -356,14 +377,14 @@ export class AiChatSidebarComponent {
           }
         } catch (e) {
           console.error("Error parseando respuesta IA de Spring Boot", e, jsonString);
-          alert("Claude devolvió un formato inválido de JSON. Reintente.");
+          this.toast.error("Claude devolvió un formato inválido de JSON. Reintente.");
         }
         this.isGenerating.set(false);
       },
       error: (e) => {
         console.error(e);
         this.isGenerating.set(false);
-        alert("Fallo de comunicación con la API.");
+        this.toast.error("Fallo de comunicación con la API.");
       }
     });
   }
