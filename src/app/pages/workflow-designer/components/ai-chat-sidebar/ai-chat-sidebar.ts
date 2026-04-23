@@ -1,26 +1,69 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed, effect } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, effect, OnDestroy, PLATFORM_ID } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { WorkflowStateService } from '../../services/workflow-state.service';
 import { WorkflowService } from '../../../../services/workflow.service';
+import { AuthService } from '../../../../services/auth.service';
 import { ButtonComponent } from '../../../../shared/button/button';
 import { JsonFormBuilderComponent } from '../json-form-builder/json-form-builder';
+import { WorkflowAiAssistantComponent } from '../workflow-ai-assistant/workflow-ai-assistant';
 import { ToastService } from '../../../../shared/toast/toast.service';
 import { DialogService } from '../../../../shared/dialog/dialog.service';
+import { PasoGenerado } from '../../../../services/workflow.service';
+
+interface SpeechRecognitionAlternativeLike {
+  transcript: string;
+}
+
+interface SpeechRecognitionResultLike {
+  0: SpeechRecognitionAlternativeLike;
+  isFinal: boolean;
+  length: number;
+}
+
+interface SpeechRecognitionEventLike {
+  results: ArrayLike<SpeechRecognitionResultLike>;
+}
+
+interface SpeechRecognitionLike {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
+type BrowserSpeechWindow = Window & {
+  webkitSpeechRecognition?: SpeechRecognitionCtor;
+  SpeechRecognition?: SpeechRecognitionCtor;
+};
+
+interface WorkflowGenerationResponse {
+  nombreTramite?: string;
+  descripcionTramite?: string;
+  categoria?: 'INTERNO' | 'EXTERNO' | string;
+  costoBase?: number;
+  formularioCliente?: Record<string, unknown>;
+  pasos?: PasoGenerado[];
+}
 
 @Component({
   selector: 'app-ai-chat-sidebar',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ButtonComponent, JsonFormBuilderComponent],
+  imports: [CommonModule, ReactiveFormsModule, ButtonComponent, JsonFormBuilderComponent, WorkflowAiAssistantComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div 
       class="h-full border-l border-surface-800 bg-surface-900/50 flex flex-col z-10 shrink-0 transition-all duration-300 ease-in-out"
-      [style.width]="workflowState.isChatExpanded() ? '320px' : '0px'"
+      [style.width]="workflowState.isChatExpanded() ? 'min(100vw, 380px)' : '0px'"
       [style.borderLeftWidth]="workflowState.isChatExpanded() ? '1px' : '0px'"
       [style.overflow]="'hidden'"
     >
-      <div class="p-4 flex flex-col w-[320px] h-full gap-5">
+      <div class="p-4 flex flex-col w-[min(100vw,380px)] h-full min-h-0 gap-5">
         
         <!-- Header con TABS -->
         <div class="flex justify-between items-center mb-2">
@@ -45,17 +88,48 @@ import { DialogService } from '../../../../shared/dialog/dialog.service';
         </div>
         
         <!-- Tab: Chat Inteligente -->
-        <div class="flex flex-col gap-3" [class.hidden]="activeTab() !== 'chat'">
+        <div class="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto pr-1" [class.hidden]="activeTab() !== 'chat'">
           <label class="text-xs text-gray-400">Describe la política del trámite</label>
           <textarea 
             [formControl]="promptCtrl"
-            rows="6"
-            class="w-full bg-surface-800 border border-surface-700 rounded-xl p-3 text-sm text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all resize-none"
+            rows="3"
+            class="w-full min-h-24 shrink-0 rounded-lg border border-surface-700 bg-surface-800 p-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
             placeholder="Ej. Trámite de vacaciones. Pasa por RRHH y luego a Gerencia..."
           ></textarea>
-          <app-button variant="primary" size="sm" class="w-full" (click)="generarConIA()" [disabled]="isGenerating() || !promptCtrl.value">
-            {{ isGenerating() ? 'Generando...' : 'Generar Diagrama con IA' }}
-          </app-button>
+
+          <div class="flex items-center gap-2">
+            <app-button variant="primary" size="sm" class="flex-1" (click)="generarConIA()" [disabled]="isGenerating() || !promptCtrl.value || isPromptListening()">
+              {{ isGenerating() ? 'Generando...' : 'Generar Diagrama' }}
+            </app-button>
+            <app-button variant="outline" size="sm" (click)="togglePromptVoiceInput()" [disabled]="!voiceInputSupported() || isGenerating()">
+              {{ isPromptListening() ? 'Detener Voz' : 'Hablar' }}
+            </app-button>
+          </div>
+
+          <div class="rounded-lg border border-surface-700 bg-surface-950/50 px-3 py-2">
+            @if (isPromptListening()) {
+              <p class="text-[11px] text-red-300 flex items-center gap-2">
+                <span class="inline-flex h-2.5 w-2.5 rounded-full bg-red-400 animate-pulse"></span>
+                Grabando prompt por voz...
+              </p>
+            } @else if (isGenerating()) {
+              <p class="text-[11px] text-emerald-300 flex items-center gap-2">
+                <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Procesando y generando diagrama...
+              </p>
+            } @else if (isPromptVoiceProcessing()) {
+              <p class="text-[11px] text-sky-300 flex items-center gap-2">
+                <span class="inline-flex h-2.5 w-2.5 rounded-full bg-sky-400 animate-pulse"></span>
+                Transcripción completada. Enviando prompt...
+              </p>
+            } @else {
+              <p class="text-[11px] text-gray-400">
+                Puedes escribir o hablar. Si usas voz, al terminar se genera automáticamente.
+              </p>
+            }
+          </div>
+
+          <app-workflow-ai-assistant></app-workflow-ai-assistant>
         </div>
 
         <!-- Tab: Propiedades del Nodo Seleccionado -->
@@ -182,12 +256,14 @@ import { DialogService } from '../../../../shared/dialog/dialog.service';
     </div>
   `
 })
-export class AiChatSidebarComponent {
+export class AiChatSidebarComponent implements OnDestroy {
   workflowState = inject(WorkflowStateService);
   private workflowService = inject(WorkflowService);
   private fb = inject(FormBuilder);
   private toast = inject(ToastService);
   private dialogService = inject(DialogService);
+  private authService = inject(AuthService);
+  private platformId = inject(PLATFORM_ID);
   
   // TABS State
   activeTab = signal<'chat' | 'propiedades'>('chat');
@@ -195,6 +271,9 @@ export class AiChatSidebarComponent {
   // Chat Form
   promptCtrl = this.fb.control('');
   isGenerating = signal(false);
+  isPromptListening = signal(false);
+  isPromptVoiceProcessing = signal(false);
+  voiceInputSupported = signal(false);
 
   // Edit Forms
   editNombreCtrl = this.fb.control('');
@@ -206,9 +285,16 @@ export class AiChatSidebarComponent {
   globalDescCtrl = this.fb.control('');
   globalCategoriaCtrl = this.fb.control('INTERNO');
   globalCostoBaseCtrl = this.fb.control(0);
-  globalFormClienteCtrl = this.fb.control<any>({});
+  globalFormClienteCtrl = this.fb.control<Record<string, unknown>>({});
+
+  private promptRecognition: SpeechRecognitionLike | null = null;
 
   constructor() {
+    if (isPlatformBrowser(this.platformId)) {
+      const browserWindow = window as BrowserSpeechWindow;
+      this.voiceInputSupported.set(Boolean(browserWindow.SpeechRecognition || browserWindow.webkitSpeechRecognition));
+    }
+
     // Si la categoría cambia a INTERNO, entonces resetea el costo base a 0
     this.globalCategoriaCtrl.valueChanges.subscribe((val) => {
       if (val === 'INTERNO') {
@@ -233,6 +319,10 @@ export class AiChatSidebarComponent {
         this.globalFormClienteCtrl.setValue(this.workflowState.formularioCliente() || {});
       }
     });
+  }
+
+  ngOnDestroy() {
+    this.promptRecognition?.stop();
   }
 
   guardarMetadataGlobal() {
@@ -323,8 +413,14 @@ export class AiChatSidebarComponent {
 
 
   generarConIA() {
-    const prompt = this.promptCtrl.value;
+    const prompt = (this.promptCtrl.value ?? '').trim();
     if (!prompt) return;
+
+    const user = this.authService.getUser();
+    if (!user || user.rol !== 'ADMIN') {
+      this.toast.error('Solo un usuario ADMIN puede generar diagramas con IA.');
+      return;
+    }
     
     this.isGenerating.set(true);
 
@@ -332,19 +428,11 @@ export class AiChatSidebarComponent {
     this.workflowService.generateWithAi(prompt).subscribe({
       next: (jsonString) => {
         try {
-          // Limpieza por si la IA trae markdown a pesar de las instrucciones
-          let cleanJson = jsonString.trim();
-          if (cleanJson.startsWith('```')) {
-            cleanJson = cleanJson.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
-          } else {
-            cleanJson = cleanJson.replace(/```json/g, '').replace(/```/g, '').trim();
-          }
-
-          const parsed = JSON.parse(cleanJson);
+          const parsed = this.parseGeneratedWorkflow(jsonString);
           if (parsed && Array.isArray(parsed.pasos)) {
             const deptosReales = this.workflowState.departamentos();
             // Mapeo seguro de nombres devueltos por IA a verdaderos IDs
-            parsed.pasos.forEach((p: any) => {
+            parsed.pasos.forEach((p) => {
               if (p.departamentoId && p.departamentoId !== 'Cliente') {
                 const found = deptosReales.find(d => d.nombre.toLowerCase() === String(p.departamentoId).toLowerCase());
                 if (found) {
@@ -376,16 +464,207 @@ export class AiChatSidebarComponent {
             this.activeTab.set('propiedades');
           }
         } catch (e) {
-          console.error("Error parseando respuesta IA de Spring Boot", e, jsonString);
-          this.toast.error("Claude devolvió un formato inválido de JSON. Reintente.");
+          console.error('Error parseando respuesta IA de Spring Boot', e);
+          this.toast.error('Claude devolvió una respuesta incompleta o inválida. Intenta de nuevo.');
         }
         this.isGenerating.set(false);
       },
       error: (e) => {
         console.error(e);
         this.isGenerating.set(false);
-        this.toast.error("Fallo de comunicación con la API.");
+        const errorMessage = this.extractApiErrorMessage(e);
+        this.toast.error(errorMessage);
       }
     });
+  }
+
+  togglePromptVoiceInput() {
+    if (!this.voiceInputSupported()) {
+      this.toast.error('Reconocimiento de voz no disponible en este navegador.');
+      return;
+    }
+
+    if (this.isPromptListening()) {
+      this.promptRecognition?.stop();
+      this.isPromptListening.set(false);
+      return;
+    }
+
+    this.startPromptVoiceInput();
+  }
+
+  private startPromptVoiceInput() {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    const browserWindow = window as BrowserSpeechWindow;
+    const Recognition = browserWindow.SpeechRecognition || browserWindow.webkitSpeechRecognition;
+    if (!Recognition) {
+      return;
+    }
+
+    this.promptRecognition = new Recognition();
+    this.promptRecognition.lang = 'es-ES';
+    this.promptRecognition.interimResults = false;
+    this.promptRecognition.continuous = false;
+
+    this.promptRecognition.onresult = (event) => {
+      const firstResult = event.results[0];
+      const transcript = firstResult && firstResult[0] ? firstResult[0].transcript.trim() : '';
+      if (transcript.length > 0) {
+        this.promptCtrl.setValue(transcript);
+        this.isPromptVoiceProcessing.set(true);
+      }
+    };
+
+    this.promptRecognition.onerror = () => {
+      this.isPromptListening.set(false);
+      this.isPromptVoiceProcessing.set(false);
+      this.toast.error('No se pudo capturar el audio del prompt.');
+    };
+
+    this.promptRecognition.onend = () => {
+      const shouldGenerate = this.isPromptVoiceProcessing() && !!(this.promptCtrl.value ?? '').trim();
+      this.isPromptListening.set(false);
+      if (shouldGenerate) {
+        this.generarConIA();
+      }
+      this.isPromptVoiceProcessing.set(false);
+    };
+
+    this.promptRecognition.start();
+    this.isPromptListening.set(true);
+  }
+
+  private parseGeneratedWorkflow(rawResponse: string): WorkflowGenerationResponse {
+    const normalized = this.extractFirstJsonObject(rawResponse);
+    if (!normalized) {
+      throw new Error('No se pudo extraer un objeto JSON válido de la respuesta IA.');
+    }
+
+    const parsedUnknown: unknown = JSON.parse(normalized);
+    if (!this.isWorkflowGenerationResponse(parsedUnknown)) {
+      throw new Error('La respuesta IA no tiene la estructura mínima esperada.');
+    }
+
+    return parsedUnknown;
+  }
+
+  private isWorkflowGenerationResponse(value: unknown): value is WorkflowGenerationResponse {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    const objectValue = value as Record<string, unknown>;
+    return Array.isArray(objectValue['pasos']);
+  }
+
+  private extractFirstJsonObject(rawResponse: string): string | null {
+    if (!rawResponse || !rawResponse.trim()) {
+      return null;
+    }
+
+    let content = rawResponse.trim();
+    if (content.startsWith('```')) {
+      content = content.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim();
+    }
+
+    const start = content.indexOf('{');
+    if (start < 0) {
+      return null;
+    }
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let index = start; index < content.length; index += 1) {
+      const char = content[index];
+
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+
+      if (char === '\\') {
+        escaped = true;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = !inString;
+        continue;
+      }
+
+      if (inString) {
+        continue;
+      }
+
+      if (char === '{') {
+        depth += 1;
+      } else if (char === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          return content.slice(start, index + 1);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private extractApiErrorMessage(error: unknown): string {
+    if (!error || typeof error !== 'object') {
+      return 'Fallo de comunicación con la API.';
+    }
+
+    const err = error as { status?: number; error?: unknown; message?: string };
+
+    if (err.status === 403) {
+      return 'No tienes permisos para esta acción. Verifica que tu sesión esté activa e intenta cerrar e iniciar sesión nuevamente.';
+    }
+
+    if (err.status === 400) {
+      const detail = this.extractServerErrorField(err.error);
+      if (detail) {
+        return `No se pudo generar el workflow: ${detail}`;
+      }
+      return 'No se pudo generar el workflow. El backend recibió una respuesta IA inválida.';
+    }
+
+    return err.message || 'Fallo de comunicación con la API.';
+  }
+
+  private extractServerErrorField(payload: unknown): string | null {
+    if (!payload) {
+      return null;
+    }
+
+    if (typeof payload === 'string') {
+      const text = payload.trim();
+      try {
+        const parsedUnknown: unknown = JSON.parse(text);
+        if (parsedUnknown && typeof parsedUnknown === 'object') {
+          const parsed = parsedUnknown as Record<string, unknown>;
+          if (typeof parsed['error'] === 'string' && parsed['error'].trim()) {
+            return parsed['error'].trim();
+          }
+        }
+      } catch {
+        // If not JSON, use plain text payload.
+      }
+
+      return text || null;
+    }
+
+    if (typeof payload === 'object') {
+      const objectPayload = payload as Record<string, unknown>;
+      if (typeof objectPayload['error'] === 'string' && objectPayload['error'].trim()) {
+        return objectPayload['error'].trim();
+      }
+    }
+
+    return null;
   }
 }

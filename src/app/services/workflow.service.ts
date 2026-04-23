@@ -7,12 +7,40 @@ export interface WorkflowGeneratedResponse {
   pasos: PasoGenerado[];
 }
 
+export interface WorkflowAiCorrection {
+  severidad: 'ALTA' | 'MEDIA' | 'BAJA';
+  titulo: string;
+  detalle: string;
+  accion: string;
+}
+
+export interface WorkflowAiAssistResponse {
+  respuesta: string;
+  guiaUso: string[];
+  correccionesDetectadas: WorkflowAiCorrection[];
+  workflowSugerido: {
+    nombreTramite: string;
+    descripcionTramite: string;
+    categoria: 'INTERNO' | 'EXTERNO';
+    costoBase: number;
+    formularioCliente: Record<string, unknown>;
+    pasos: PasoGenerado[];
+  } | null;
+}
+
+export interface WorkflowAiAssistRequest {
+  prompt: string;
+  operatorRole: string;
+  mode: 'create' | 'edit';
+  workflowDraft: Record<string, unknown>;
+}
+
 export interface PasoGenerado {
   id: string;
   tipo: 'ACTIVIDAD' | 'DECISION';
   departamentoId: string | null;
   nombrePaso: string;
-  formularioJson: Record<string, any> | null;
+  formularioJson: Record<string, unknown> | null;
   siguientes: Record<string, string>;
   isCustom?: boolean;
 }
@@ -24,7 +52,7 @@ export interface PlantillaWorkflowDTO {
   categoria: string;
   costoBase: number;
   isActive: boolean;
-  formularioCliente: Record<string, any>;
+  formularioCliente: Record<string, unknown>;
   pasos: PasoGenerado[];
 }
 
@@ -41,7 +69,15 @@ export class WorkflowService {
     );
   }
 
-  saveWorkflow(workflow: any): Observable<PlantillaWorkflowDTO> {
+  assistWorkflowWithAi(request: WorkflowAiAssistRequest): Observable<string> {
+    return this.http.post(
+      `${this.apiUrl}/workflows/ai/assist`,
+      request,
+      { responseType: 'text' }
+    );
+  }
+
+  saveWorkflow(workflow: Record<string, unknown>): Observable<PlantillaWorkflowDTO> {
     return this.http.post<PlantillaWorkflowDTO>(`${this.apiUrl}/workflows`, workflow);
   }
 
@@ -53,7 +89,7 @@ export class WorkflowService {
     return this.http.get<PlantillaWorkflowDTO>(`${this.apiUrl}/workflows/${id}`);
   }
 
-  updateWorkflow(id: string, workflow: any): Observable<PlantillaWorkflowDTO> {
+  updateWorkflow(id: string, workflow: Record<string, unknown>): Observable<PlantillaWorkflowDTO> {
     return this.http.put<PlantillaWorkflowDTO>(`${this.apiUrl}/workflows/${id}`, workflow);
   }
 
