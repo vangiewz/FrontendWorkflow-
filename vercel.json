@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/cryptomus_b3193c63.html",
+      "destination": "/cryptomus_b3193c63.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
