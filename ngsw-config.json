@@ -1,0 +1,60 @@
+{
+  "$schema": "./node_modules/@angular/service-worker/config/schema.json",
+  "index": "/index.html",
+  "assetGroups": [
+    {
+      "name": "app-shell",
+      "installMode": "prefetch",
+      "updateMode": "prefetch",
+      "resources": {
+        "files": [
+          "/favicon.ico",
+          "/index.csr.html",
+          "/index.html",
+          "/manifest.webmanifest",
+          "/*.css",
+          "/*.js"
+        ]
+      }
+    },
+    {
+      "name": "assets",
+      "installMode": "lazy",
+      "updateMode": "prefetch",
+      "resources": {
+        "files": [
+          "/icons/**",
+          "/**/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf|woff|woff2)"
+        ],
+        "urls": [
+          "https://fonts.googleapis.com/**",
+          "https://fonts.gstatic.com/**"
+        ]
+      }
+    }
+  ],
+  "dataGroups": [
+    {
+      "name": "api-data",
+      "urls": [
+        "**/api/departamentos",
+        "**/api/departamentos/**",
+        "**/api/usuarios",
+        "**/api/usuarios/**",
+        "**/api/workflows",
+        "**/api/workflows/**",
+        "**/api/tramites",
+        "**/api/tramites/**",
+        "**/api/bitacora",
+        "**/api/bitacora/**",
+        "**/api/analytics/**"
+      ],
+      "cacheConfig": {
+        "strategy": "freshness",
+        "maxSize": 150,
+        "maxAge": "1d",
+        "timeout": "5s"
+      }
+    }
+  ]
+}

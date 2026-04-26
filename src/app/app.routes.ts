@@ -37,6 +37,18 @@ export const routes: Routes = [
           route: '/usuarios'
         },
         {
+          title: 'Gestionar Clientes',
+          description: 'Administra, activa y suspende a los usuarios externos (Clientes) del sistema.',
+          icon: '🧑‍💼',
+          route: '/clientes'
+        },
+        {
+          title: 'Bitácora del Sistema',
+          description: 'Registro de auditoría con todas las acciones y eventos realizados en el sistema y la app móvil.',
+          icon: '📋',
+          route: '/bitacora'
+        },
+        {
           title: 'Gestionar Departamentos',
           description: 'Crea y configura las áreas organizacionales a las que se asignarán los funcionarios.',
           icon: '🏢',
@@ -51,7 +63,7 @@ export const routes: Routes = [
     path: 'paquetes/configuracion-ia',
     loadComponent: () =>
       import('./pages/paquete-hub/paquete-hub').then((m) => m.PaqueteHubPage),
-    canActivate: [authGuard, roleGuard(['ADMIN', 'FUNCIONARIO'])],
+    canActivate: [authGuard, roleGuard(['ADMIN'])],
     data: {
       title: 'Paquete: Configuración e Inteligencia Artificial',
       description: 'El núcleo del sistema. Diseña políticas de negocio en lenguaje natural y deja que la IA genere automáticamente las rutas de trámites, los formularios JSON y los actores responsables.',
@@ -111,7 +123,7 @@ export const routes: Routes = [
     path: 'workflows',
     loadComponent: () =>
       import('./pages/workflow-designer/listar-workflows/listar-workflows').then((m) => m.ListarWorkflowsPage),
-    canActivate: [authGuard, roleGuard(['ADMIN', 'FUNCIONARIO'])],
+    canActivate: [authGuard, roleGuard(['ADMIN'])],
   },
   {
     path: 'designer',
@@ -129,6 +141,18 @@ export const routes: Routes = [
     path: 'usuarios',
     loadComponent: () =>
       import('./pages/usuarios/gestionar-usuarios/gestionar-usuarios').then((m) => m.GestionarUsuariosPage),
+    canActivate: [authGuard, roleGuard(['ADMIN'])],
+  },
+  {
+    path: 'clientes',
+    loadComponent: () =>
+      import('./pages/usuarios/gestionar-clientes/gestionar-clientes').then((m) => m.GestionarClientesPage),
+    canActivate: [authGuard, roleGuard(['ADMIN'])],
+  },
+  {
+    path: 'bitacora',
+    loadComponent: () =>
+      import('./pages/usuarios/bitacora/bitacora').then((m) => m.BitacoraComponent),
     canActivate: [authGuard, roleGuard(['ADMIN'])],
   },
   {
@@ -153,6 +177,6 @@ export const routes: Routes = [
     path: 'analytics',
     loadComponent: () =>
       import('./pages/analytics/analytics').then((m) => m.AnalyticsPage),
-    canActivate: [authGuard, roleGuard(['ADMIN', 'FUNCIONARIO'])],
+    canActivate: [authGuard, roleGuard(['ADMIN'])],
   },
 ];
