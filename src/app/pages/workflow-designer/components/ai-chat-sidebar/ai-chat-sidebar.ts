@@ -58,7 +58,7 @@ interface WorkflowGenerationResponse {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div 
-      class="h-full border-l border-surface-800 bg-surface-900/50 flex flex-col z-10 shrink-0 transition-all duration-300 ease-in-out"
+      class="h-full absolute md:relative right-0 top-0 bottom-0 border-l border-surface-800 bg-surface-900 shadow-2xl md:shadow-none md:bg-surface-900/50 flex flex-col z-30 shrink-0 transition-all duration-300 ease-in-out"
       [style.width]="workflowState.isChatExpanded() ? 'min(100vw, 380px)' : '0px'"
       [style.borderLeftWidth]="workflowState.isChatExpanded() ? '1px' : '0px'"
       [style.overflow]="'hidden'"

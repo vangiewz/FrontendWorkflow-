@@ -95,11 +95,16 @@ import { AuthService } from '../../services/auth.service';
         </div>
         <!-- Backdrop for mobile palette -->
         @if (showPalette()) {
-          <div class="lg:hidden fixed inset-0 bg-black/40 z-20" (click)="showPalette.set(false)"></div>
+          <div class="lg:hidden absolute inset-0 bg-black/40 z-20 backdrop-blur-sm transition-opacity" (click)="showPalette.set(false)"></div>
         }
         <div class="flex-1 overflow-hidden relative">
           <app-jointjs-canvas></app-jointjs-canvas>
         </div>
+        
+        <!-- Backdrop for AI sidebar on mobile -->
+        @if (workflowState.isChatExpanded()) {
+          <div class="md:hidden absolute inset-0 bg-black/40 z-20 backdrop-blur-sm transition-opacity" (click)="workflowState.toggleChat()"></div>
+        }
         <app-ai-chat-sidebar></app-ai-chat-sidebar>
       </main>
     </div>

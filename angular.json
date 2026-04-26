@@ -39,7 +39,8 @@
             },
             "ssr": {
               "entry": "src/server.ts"
-            }
+            },
+            "prerender": false
           },
             "configurations": {
               "production": {
@@ -61,7 +62,8 @@
                     "maximumError": "8kB"
                   }
                 ],
-                "outputHashing": "all"
+                "outputHashing": "all",
+                "serviceWorker": "ngsw-config.json"
               },
               "development": {
               "optimization": false,

@@ -22,18 +22,39 @@ export class WorkflowWebsocketService implements OnDestroy {
     }
   }
 
+  private buildWsUrl(): string {
+    const apiUrl = environment.apiUrl; // e.g. https://host/api  OR  http://localhost:8080/api
+    const url = new URL(apiUrl);
+    // Mapear el protocolo HTTP→WS y HTTPS→WSS correctamente
+    const wsProtocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    // Endpoint WebSocket nativo (sin SockJS) — el backend lo expone en /ws-workflow
+    return `${wsProtocol}//${url.host}/ws-workflow`;
+  }
+
   private initStomp() {
     this.rxStomp = new RxStomp();
     
-    const url = new URL(environment.apiUrl);
-    const wsUrl = `ws://${url.host}/ws-workflow`;
+    const wsUrl = this.buildWsUrl();
+    console.log('[WebSocket] Conectando a:', wsUrl);
     
     this.rxStomp.configure({
       brokerURL: wsUrl,
-      reconnectDelay: 2000,
+      reconnectDelay: 5000,
+      // Logs solo en dev
+      debug: environment.production ? () => {} : (msg: string) => console.log('[STOMP]', msg)
     });
     
     this.rxStomp.activate();
+
+    this.rxStomp.connected$.subscribe(() =>
+      console.log('[WebSocket] Conexión STOMP establecida ✓')
+    );
+    this.rxStomp.webSocketErrors$.subscribe((err: Event) =>
+      console.error('[WebSocket] Error de conexión:', err)
+    );
+    this.rxStomp.stompErrors$.subscribe((frame: any) =>
+      console.error('[WebSocket] Error STOMP:', frame)
+    );
   }
 
   public leaveRoom() {
@@ -65,7 +86,7 @@ export class WorkflowWebsocketService implements OnDestroy {
       })
     );
 
-    // Notify others
+    // Notify others that we joined
     this.rxStomp.publish({
       destination: `/app/workflow/${workflowId}/join`,
       body: JSON.stringify({ usuarioNombre: userName, accion: 'JOIN' })

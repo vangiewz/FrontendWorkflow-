@@ -2,13 +2,12 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { UsuarioService, UsuarioResponse } from '../../../services/usuario.service';
-import { DepartamentoService, Departamento } from '../../../services/departamento.service';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { DialogService } from '../../../shared/dialog/dialog.service';
 
 @Component({
-  selector: 'app-gestionar-usuarios',
+  selector: 'app-gestionar-clientes',
   standalone: true,
   imports: [CommonModule, RouterLink, FormsModule],
   template: `
@@ -20,11 +19,11 @@ import { DialogService } from '../../../shared/dialog/dialog.service';
             <span class="font-medium text-sm hidden sm:block">Volver</span>
           </a>
           <div class="h-6 w-px bg-surface-700 hidden sm:block"></div>
-          <h1 class="text-lg sm:text-xl font-bold text-white tracking-tight">Gestionar Usuarios</h1>
+          <h1 class="text-lg sm:text-xl font-bold text-white tracking-tight">Gestionar Clientes</h1>
         </div>
         <a routerLink="/usuarios/crear" class="flex items-center gap-1 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors text-xs sm:text-sm font-medium whitespace-nowrap">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          <span class="hidden sm:inline">Crear Usuario</span>
+          <span class="hidden sm:inline">Crear Cliente</span>
           <span class="sm:hidden">Crear</span>
         </a>
       </header>
@@ -47,16 +46,15 @@ import { DialogService } from '../../../shared/dialog/dialog.service';
               <table class="w-full text-left border-collapse">
                 <thead>
                   <tr class="bg-surface-800/80 text-gray-400 text-xs uppercase tracking-wider">
-                    <th class="p-4 font-semibold">Usuario</th>
+                    <th class="p-4 font-semibold">Cliente</th>
                     <th class="p-4 font-semibold">Estado</th>
                     <th class="p-4 font-semibold">Teléfono</th>
                     <th class="p-4 font-semibold">Rol</th>
-                    <th class="p-4 font-semibold">Departamento</th>
                     <th class="p-4 font-semibold text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-surface-800">
-                  @for (u of personal(); track u.id) {
+                  @for (u of clientes(); track u.id) {
                     <tr class="hover:bg-surface-800/30 transition-colors">
                       <td class="p-4">
                         <div class="flex items-center gap-3">
@@ -95,19 +93,6 @@ import { DialogService } from '../../../shared/dialog/dialog.service';
                           <option value="CLIENTE">CLIENTE</option>
                         </select>
                       </td>
-                      <td class="p-4">
-                        <select 
-                          [ngModel]="u.departamentoId" 
-                          (ngModelChange)="changeDepto(u.id, $event)"
-                          [disabled]="!u.isActive"
-                          class="bg-surface-800 border border-surface-700 text-gray-300 text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block w-full p-2 outline-none min-w-[150px] disabled:opacity-50"
-                        >
-                          <option [value]="null">-- Sin Depto --</option>
-                          @for (d of departamentos(); track d.id) {
-                            <option [value]="d.id">{{ d.nombre }}</option>
-                          }
-                        </select>
-                      </td>
                       <td class="p-4 text-right whitespace-nowrap">
                         <button 
                           (click)="changePassword(u.id)"
@@ -121,7 +106,7 @@ import { DialogService } from '../../../shared/dialog/dialog.service';
                           <button 
                             (click)="desactivarUsuario(u.id, u.nombre)"
                             class="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-colors" 
-                            title="Desactivar Usuario"
+                            title="Desactivar Cliente"
                           >
                             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
                           </button>
@@ -129,7 +114,7 @@ import { DialogService } from '../../../shared/dialog/dialog.service';
                           <button 
                             (click)="reactivarUsuario(u.id, u.nombre)"
                             class="p-2 text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-colors" 
-                            title="Activar Usuario"
+                            title="Activar Cliente"
                           >
                             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
                           </button>
@@ -139,7 +124,7 @@ import { DialogService } from '../../../shared/dialog/dialog.service';
                   } @empty {
                     <tr>
                       <td colspan="5" class="p-8 text-center text-gray-500 text-sm">
-                        No hay usuarios listados.
+                        No hay clientes listados.
                       </td>
                     </tr>
                   }
@@ -152,16 +137,15 @@ import { DialogService } from '../../../shared/dialog/dialog.service';
     </div>
   `
 })
-export class GestionarUsuariosPage implements OnInit {
+export class GestionarClientesPage implements OnInit {
   private readonly usuarioService = inject(UsuarioService);
-  private readonly departamentoService = inject(DepartamentoService);
   private readonly toast = inject(ToastService);
   private readonly dialogService = inject(DialogService);
 
   readonly usuarios = signal<UsuarioResponse[]>([]);
-  readonly departamentos = signal<Departamento[]>([]);
-
-  readonly personal = computed(() => this.usuarios().filter(u => !u.rol || u.rol.trim().toUpperCase() !== 'CLIENTE'));
+  
+  // Filtrar solo los de rol CLIENTE (robusto a espacios/mayúsculas)
+  readonly clientes = computed(() => this.usuarios().filter(u => u.rol && u.rol.trim().toUpperCase() === 'CLIENTE'));
 
   readonly errorMessage = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
@@ -171,7 +155,6 @@ export class GestionarUsuariosPage implements OnInit {
   }
 
   cargarDatos() {
-    this.departamentoService.getDepartamentos().subscribe((d) => this.departamentos.set(d));
     this.usuarioService.getUsuarios().subscribe((u) => Object.freeze(this.usuarios.set(u)));
   }
 
@@ -179,23 +162,9 @@ export class GestionarUsuariosPage implements OnInit {
     this.usuarioService.updateRol(id, newRol).subscribe({
       next: (res) => {
         this.usuarios.update(us => us.map(u => u.id === id ? res : u));
-        this.mostrarExito('Rol actualizado correctamente');
+        this.mostrarExito('Rol actualizado correctamente. El usuario se moverá al grupo correspondiente.');
       },
       error: (e) => this.mostrarError(e.error?.error || 'Error al cambiar rol')
-    });
-  }
-
-  changeDepto(id: string, newDeptoId: string | null) {
-    if (!newDeptoId || newDeptoId === 'null') {
-        this.mostrarError('No se puede dejar sin departamento con este payload por ahora');
-        return;
-    }
-    this.usuarioService.assignDepartamento(id, newDeptoId).subscribe({
-      next: (res) => {
-        this.usuarios.update(us => us.map(u => u.id === id ? res : u));
-        this.mostrarExito('Departamento asignado correctamente');
-      },
-      error: (e) => this.mostrarError(e.error?.error || 'Error asignando departamento')
     });
   }
 
@@ -213,7 +182,7 @@ export class GestionarUsuariosPage implements OnInit {
   }
 
   changePassword(id: string) {
-    this.dialogService.prompt('Cambiar Contraseña', 'Ingrese la nueva contraseña para este usuario (mínimo 6 caracteres):').subscribe(pwd => {
+    this.dialogService.prompt('Cambiar Contraseña', 'Ingrese la nueva contraseña para este cliente (mínimo 6 caracteres):').subscribe(pwd => {
       if (pwd === null) return;
       if (!pwd || pwd.length < 6) {
         this.toast.error('La contraseña debe tener al menos 6 caracteres');
@@ -229,7 +198,7 @@ export class GestionarUsuariosPage implements OnInit {
 
   desactivarUsuario(id: string, nombre: string) {
     this.dialogService.confirm(
-      'Desactivar Usuario',
+      'Desactivar Cliente',
       `¿Desactivar a ${nombre}?\nYa no listará dentro de este sistema, ni podrá acceder.`,
       true,
       'Desactivar'
@@ -238,17 +207,17 @@ export class GestionarUsuariosPage implements OnInit {
   
       this.usuarioService.deleteUsuario(id).subscribe({
         next: () => {
-          this.toast.success('Usuario desactivado correctamente');
+          this.toast.success('Cliente desactivado correctamente');
           this.usuarios.update(us => us.map(u => u.id === id ? { ...u, isActive: false } : u));
         },
-        error: () => this.toast.error('Error al desactivar el usuario')
+        error: () => this.toast.error('Error al desactivar el cliente')
       });
     });
   }
 
   reactivarUsuario(id: string, nombre: string) {
     this.dialogService.confirm(
-      'Reactivar Usuario',
+      'Reactivar Cliente',
       `¿Reactivar a ${nombre}?\nVolverá a tener acceso completo.`,
       false,
       'Reactivar'
@@ -257,10 +226,10 @@ export class GestionarUsuariosPage implements OnInit {
   
       this.usuarioService.reactivateUsuario(id).subscribe({
         next: () => {
-          this.toast.success('Usuario reactivado correctamente');
+          this.toast.success('Cliente reactivado correctamente');
           this.usuarios.update(us => us.map(u => u.id === id ? { ...u, isActive: true } : u));
         },
-        error: () => this.toast.error('Error al reactivar el usuario')
+        error: () => this.toast.error('Error al reactivar el cliente')
       });
     });
   }
