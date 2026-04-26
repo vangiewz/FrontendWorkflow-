@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms'; // Using ngModel for simple databi
 
 export interface FormFieldItem {
   key: string;
-  type: string; // string, number, boolean, date, datetime
+  type: string; // string, number, boolean, date, datetime, file
   description: string;
   isRequired: boolean;
 }
@@ -38,12 +38,13 @@ export interface FormFieldItem {
             </div>
             <div>
                <label class="text-[10px] text-gray-500 uppercase tracking-wide">Tipo de Dato</label>
-               <select [ngModel]="field.type" (ngModelChange)="updateField($index, {type: $event})" class="w-full bg-surface-800 border border-surface-700 rounded p-1.5 text-xs text-gray-200 focus:ring-1 focus:ring-emerald-500 focus:outline-none appearance-none">
+                 <select [ngModel]="field.type" (ngModelChange)="updateField($index, {type: $event})" class="w-full bg-surface-800 border border-surface-700 rounded p-1.5 text-xs text-gray-200 focus:ring-1 focus:ring-emerald-500 focus:outline-none appearance-none">
                  <option value="string">Texto</option>
                  <option value="number">Número</option>
                  <option value="boolean">Verdadero / Falso (Checkbox)</option>
                  <option value="date">Fecha</option>
                  <option value="datetime">Fecha y Hora</option>
+                 <option value="file">Archivos</option>
                </select>
             </div>
           </div>
@@ -98,6 +99,7 @@ export class JsonFormBuilderComponent {
         let fieldType = props[k]?.type || 'string';
         if (fieldType === 'string' && props[k]?.format === 'date') fieldType = 'date';
         if (fieldType === 'string' && props[k]?.format === 'date-time') fieldType = 'datetime';
+        if (fieldType === 'file') fieldType = 'file';
         return {
            key: k,
            type: fieldType,
@@ -152,6 +154,8 @@ export class JsonFormBuilderComponent {
         } else if (item.type === 'datetime') {
           prop.type = 'string';
           prop.format = 'date-time';
+        } else if (item.type === 'file') {
+          prop.type = 'file';
         } else {
           prop.type = item.type;
         }

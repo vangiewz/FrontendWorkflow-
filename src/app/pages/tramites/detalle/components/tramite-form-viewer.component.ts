@@ -120,7 +120,14 @@ import { CommonModule } from '@angular/common';
 
                   @if (isReadOnly) {
                     <div class="w-full bg-surface-800 border border-surface-700 rounded-lg p-3 text-sm text-gray-300">
-                      {{ formattedAnswerValue(field.key, field.type) }}
+                      @if (field.type === 'file' && isFileUrl(formData[field.key])) {
+                        <a [href]="formData[field.key]" target="_blank" rel="noopener noreferrer" class="text-purple-400 hover:text-purple-300 underline inline-flex items-center gap-1">
+                          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                          Ver archivo adjunto
+                        </a>
+                      } @else {
+                        {{ formattedAnswerValue(field.key, field.type) }}
+                      }
                     </div>
                   } @else {
                     @if (field.type === 'textarea') {
@@ -155,6 +162,15 @@ import { CommonModule } from '@angular/common';
                           (change)="formData[field.key] = $any($event.target).checked">
                         <span class="text-sm text-gray-300">{{ field.label }}</span>
                       </label>
+                    } @else if (field.type === 'file') {
+                      <input
+                        type="file"
+                        class="w-full bg-surface-900 border rounded-lg p-2 text-sm text-gray-200 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-500/20 file:text-purple-300 hover:file:bg-purple-500/30 cursor-pointer"
+                        [class.border-surface-700]="!field.required || formData[field.key]"
+                        [class.border-red-500/40]="field.required && !formData[field.key]"
+                        [disabled]="!canRespond"
+                        (change)="onFileSelected($event, field.key)"
+                      >
                     } @else {
                       <input
                         [type]="field.type || 'text'"
@@ -352,6 +368,12 @@ export class TramiteFormViewerComponent implements OnChanges {
         type = 'boolean';
       } else if (val?.type === 'integer' || val?.type === 'number') {
         type = 'number';
+      } else if (val?.type === 'file') {
+        type = 'file';
+      } else if (val?.type === 'date' || (val?.type === 'string' && val?.format === 'date')) {
+        type = 'date';
+      } else if (val?.type === 'date-time' || val?.type === 'datetime' || (val?.type === 'string' && val?.format === 'date-time')) {
+        type = 'datetime-local';
       } else if (val?.type === 'string') {
         if (val?.enum) type = 'select';
         else if (val?.format === 'date') type = 'date';
@@ -377,6 +399,19 @@ export class TramiteFormViewerComponent implements OnChanges {
       const val = this.formData[key];
       return val !== undefined && val !== null && val !== '';
     });
+  }
+
+  onFileSelected(event: Event, key: string) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.formData[key] = input.files[0];
+    } else {
+      delete this.formData[key];
+    }
+  }
+
+  isFileUrl(val: any): boolean {
+    return typeof val === 'string' && val.startsWith('http');
   }
 
   private createSpeechRecognition(): {

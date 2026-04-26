@@ -53,9 +53,17 @@ import { CommonModule } from '@angular/common';
                     <h4 class="text-xs text-violet-400 uppercase font-bold tracking-wider mb-3">Datos del Formulario Inicial</h4>
                     <div class="glass p-4 rounded-xl space-y-2 border border-violet-500/10">
                        @for (entry of objectEntries(initialForm); track entry[0]) {
-                          <div class="flex justify-between gap-4 py-1">
+                          <div class="flex justify-between gap-4 py-1 items-center">
                             <span class="text-xs text-gray-400 capitalize">{{ entry[0] }}:</span>
-                            <span class="text-xs text-gray-200 text-right font-medium truncate">{{ entry[1] }}</span>
+                            @if (isUrl(entry[1])) {
+                               <a [href]="entry[1]" target="_blank" rel="noopener noreferrer" 
+                                  class="text-xs text-violet-400 hover:text-violet-300 font-medium flex items-center gap-1">
+                                 <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                 Ver Archivo
+                               </a>
+                            } @else {
+                               <span class="text-xs text-gray-200 text-right font-medium truncate">{{ entry[1] }}</span>
+                            }
                           </div>
                        }
                     </div>
@@ -89,5 +97,9 @@ export class ClientDataModalComponent {
 
   objectEntries(obj: Record<string, any>): [string, any][] {
     return Object.entries(obj || {});
+  }
+
+  isUrl(val: any): boolean {
+    return typeof val === 'string' && val.startsWith('http');
   }
 }

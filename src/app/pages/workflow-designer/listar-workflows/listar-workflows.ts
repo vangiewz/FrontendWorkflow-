@@ -89,7 +89,7 @@ import { DialogService } from '../../../shared/dialog/dialog.service';
                         </span>
                       </td>
                       <td class="px-6 py-4">
-                        <span class="text-sm text-gray-300">{{ wf.costoBase > 0 ? ('USDT. ' + wf.costoBase) : 'Gratis' }}</span>
+                        <span class="text-sm text-gray-300">{{ wf.costoBase > 0 ? ('USD. ' + wf.costoBase) : 'Gratis' }}</span>
                       </td>
                       <td class="px-6 py-4">
                         <span class="text-sm text-gray-300">{{ wf.pasos.length || 0 }} pasos</span>

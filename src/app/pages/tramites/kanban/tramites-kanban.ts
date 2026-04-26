@@ -15,12 +15,30 @@ import { ToastService } from '../../../shared/toast/toast.service';
       <app-sidebar [isMobile]="false" />
 
       <div class="flex-1 flex flex-col min-w-0">
-        <header class="h-16 border-b border-purple-900/20 bg-surface-900/50 backdrop-blur-sm flex items-center justify-between px-6 shrink-0 sticky top-0 z-10">
-          <div class="flex items-center gap-3">
+        <header class="h-auto md:h-16 border-b border-purple-900/20 bg-surface-900/50 backdrop-blur-sm flex flex-col md:flex-row items-center justify-between px-6 py-3 md:py-0 shrink-0 sticky top-0 z-10 gap-3 md:gap-0">
+          <div class="flex items-center gap-3 w-full md:w-auto">
             <button class="lg:hidden text-gray-400 hover:text-white p-2" (click)="mobileSidebarOpen.set(!mobileSidebarOpen())" aria-label="Abrir menú">
               <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
             <h2 class="text-lg font-semibold text-white">Bandeja de Trámites</h2>
+          </div>
+          
+          <div class="flex flex-wrap items-center gap-3 w-full md:w-auto overflow-x-auto justify-end">
+            <div class="relative min-w-[200px]">
+              <input type="text" placeholder="Correo de quien inició el trámite..." [value]="filterEmail()" (input)="onEmailInput($event)"
+                     class="w-full bg-surface-800/50 border border-purple-900/30 rounded-lg pl-9 pr-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:border-purple-500/50">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-500 absolute left-3 top-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-400">Desde:</span>
+              <input type="date" [value]="filterStartDate()" (change)="onStartDateChange($event)"
+                     class="bg-surface-800/50 border border-purple-900/30 rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none focus:border-purple-500/50 w-[130px]">
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-400">Hasta:</span>
+              <input type="date" [value]="filterEndDate()" (change)="onEndDateChange($event)"
+                     class="bg-surface-800/50 border border-purple-900/30 rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none focus:border-purple-500/50 w-[130px]">
+            </div>
           </div>
         </header>
 
@@ -146,9 +164,35 @@ export class TramitesKanbanPage implements OnInit {
   isLoading = signal(true);
   mobileSidebarOpen = signal(false);
 
-  pendientes = computed(() => this.tramites().filter(t => t.estadoGlobal === 'PENDIENTE'));
-  enProceso = computed(() => this.tramites().filter(t => t.estadoGlobal === 'EN_PROGRESO'));
-  finalizados = computed(() => this.tramites().filter(t => t.estadoGlobal === 'FINALIZADO'));
+  filterEmail = signal('');
+  filterStartDate = signal('');
+  filterEndDate = signal('');
+
+  filteredTramites = computed(() => {
+    let list = this.tramites();
+    
+    const email = this.filterEmail().toLowerCase().trim();
+    if (email) {
+      list = list.filter(t => t.clienteEmail && t.clienteEmail.toLowerCase().includes(email));
+    }
+    
+    const startDate = this.filterStartDate();
+    if (startDate) {
+      list = list.filter(t => t.fechaCreacion && t.fechaCreacion >= startDate);
+    }
+
+    const endDate = this.filterEndDate();
+    if (endDate) {
+      // End date requires comparing against the next day or time part, but string comparison works if we append 'T23:59:59'
+      list = list.filter(t => t.fechaCreacion && t.fechaCreacion <= endDate + 'T23:59:59');
+    }
+    
+    return list;
+  });
+
+  pendientes = computed(() => this.filteredTramites().filter(t => t.estadoGlobal === 'PENDIENTE'));
+  enProceso = computed(() => this.filteredTramites().filter(t => t.estadoGlobal === 'EN_PROGRESO'));
+  finalizados = computed(() => this.filteredTramites().filter(t => t.estadoGlobal === 'FINALIZADO'));
 
   ngOnInit() {
     this.loadTramites();
@@ -164,6 +208,21 @@ export class TramitesKanbanPage implements OnInit {
 
   irADetalle(t: TramiteDTO) {
     this.router.navigate(['/tramites', t.id]);
+  }
+
+  onEmailInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.filterEmail.set(input.value);
+  }
+
+  onStartDateChange(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.filterStartDate.set(input.value);
+  }
+
+  onEndDateChange(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.filterEndDate.set(input.value);
   }
 
   getProgress(t: TramiteDTO): number {

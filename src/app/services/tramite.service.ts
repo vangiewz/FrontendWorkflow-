@@ -16,13 +16,16 @@ export interface TramiteDTO {
   plantillaId: string;
   nombrePlantilla: string;
   clienteId: string | null;
-  estadoGlobal: 'PENDIENTE' | 'EN_PROGRESO' | 'FINALIZADO';
+  clienteEmail?: string | null;
+  estadoGlobal: 'PENDIENTE' | 'EN_PROGRESO' | 'FINALIZADO' | 'ESPERANDO_PAGO';
   pasoActualId: string | null;
   datosFormularioCliente: Record<string, any>;
   respuestas: Record<string, Record<string, any>>;
   historialTiempos: RegistroTiempo[];
   fechaCreacion: string;
   fechaFinalizacion: string | null;
+  paymentId?: string | null;
+  invoiceUrl?: string | null;
 }
 
 export interface ResponderPasoRequest {
@@ -57,15 +60,49 @@ export class TramiteService {
   }
 
   iniciarTramite(plantillaId: string, clienteId: string | null, datosCliente: Record<string, any>): Observable<TramiteDTO> {
-    return this.http.post<TramiteDTO>(`${this.apiUrl}/tramites`, {
+    let hasFiles = false;
+    const formData = new FormData();
+    const datosClienteCopy = { ...datosCliente };
+
+    for (const key of Object.keys(datosClienteCopy)) {
+      if (datosClienteCopy[key] instanceof File) {
+        hasFiles = true;
+        formData.append(key, datosClienteCopy[key] as File);
+        delete datosClienteCopy[key];
+      }
+    }
+
+    const payload = {
       plantillaId,
       clienteId,
-      datosCliente
-    });
+      datosCliente: datosClienteCopy
+    };
+
+    if (hasFiles) {
+      formData.append('datos', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+      return this.http.post<TramiteDTO>(`${this.apiUrl}/tramites`, formData);
+    }
+
+    return this.http.post<TramiteDTO>(`${this.apiUrl}/tramites`, payload);
   }
 
   responderPaso(tramiteId: string, request: ResponderPasoRequest): Observable<TramiteDTO> {
-    return this.http.post<TramiteDTO>(`${this.apiUrl}/tramites/${tramiteId}/responder`, request);
+    const formData = new FormData();
+    const requestJsonData = { ...request };
+    
+    if (requestJsonData.respuesta) {
+      requestJsonData.respuesta = { ...request.respuesta };
+      for (const key of Object.keys(requestJsonData.respuesta)) {
+        if (requestJsonData.respuesta[key] instanceof File) {
+          formData.append(key, requestJsonData.respuesta[key] as File);
+          delete requestJsonData.respuesta[key];
+        }
+      }
+    }
+
+    formData.append('datos', new Blob([JSON.stringify(requestJsonData)], { type: 'application/json' }));
+
+    return this.http.post<TramiteDTO>(`${this.apiUrl}/tramites/${tramiteId}/responder`, formData);
   }
 
   asistirFormulario(
