@@ -22,7 +22,7 @@ export class JointjsEngineService {
     containerElement: HTMLElement, 
     onNodeSelected: (id: string) => void, 
     onLinkCreated: (source: string, target: string) => void,
-    onLinkDeleted: (source: string, target: string) => void
+    onLinkDblClick: (source: string, target: string, currentLabel: string) => void
   ) {
     this.zone.runOutsideAngular(() => {
       this.graph = new joint.dia.Graph({}, { cellNamespace: joint.shapes });
@@ -75,7 +75,13 @@ export class JointjsEngineService {
         const s = linkView.sourceView?.model.prop('custom/stepId');
         const t = linkView.targetView?.model.prop('custom/stepId');
         if (s && t) {
-          this.zone.run(() => onLinkDeleted(s, t));
+          // Extract current label from the link
+          const labels = linkView.model.labels();
+          let currentLabel = 'default';
+          if (labels && labels.length > 0 && labels[0].attrs?.text?.text) {
+            currentLabel = labels[0].attrs.text.text;
+          }
+          this.zone.run(() => onLinkDblClick(s, t, currentLabel));
         }
       });
     });
@@ -250,15 +256,20 @@ export class JointjsEngineService {
           const t = jointNodes.get(tId);
           if (!s || !t) return;
           const link = new joint.shapes.standard.Link();
-          link.source(s).target(t).router('manhattan', { step: 15, padding: 15 }).connector('rounded');
-          link.attr({ line: { stroke: '#64748B', strokeWidth: 2, targetMarker: { type: 'path', d: 'M 10 -5 0 0 10 5 z', fill: '#64748B' } }});
           
-          if (edgeLabel && edgeLabel !== 'default') {
+          const isDecisionRoute = edgeLabel && edgeLabel !== 'default';
+          const lineColor = isDecisionRoute ? '#F59E0B' : '#64748B';
+          
+          link.source(s).target(t).router('manhattan', { step: 15, padding: 15 }).connector('rounded');
+          link.attr({ line: { stroke: lineColor, strokeWidth: isDecisionRoute ? 2.5 : 2, targetMarker: { type: 'path', d: 'M 10 -5 0 0 10 5 z', fill: lineColor } }});
+          
+          if (isDecisionRoute) {
               link.labels([{
                   attrs: {
-                      text: { text: edgeLabel, fill: '#F8FAFC', fontSize: 11, fontFamily: 'sans-serif' },
-                      rect: { fill: '#1E293B', stroke: '#475569', strokeWidth: 1, rx: 4, ry: 4 }
-                  }
+                      text: { text: edgeLabel, fill: '#FFF', fontSize: 12, fontFamily: 'sans-serif', fontWeight: 'bold' },
+                      rect: { fill: '#92400E', stroke: '#F59E0B', strokeWidth: 1.5, rx: 6, ry: 6, 'ref-width': 12, 'ref-height': 6 }
+                  },
+                  position: { distance: 0.5, offset: 0, args: { keepGradient: true } }
               }]);
           }
           link.addTo(this.graph);

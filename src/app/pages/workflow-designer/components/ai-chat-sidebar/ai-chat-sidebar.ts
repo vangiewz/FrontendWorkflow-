@@ -156,9 +156,25 @@ interface WorkflowGenerationResponse {
             }
 
             @if (paso.tipo === 'DECISION') {
-              <div class="mt-4 p-4 text-center bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                <p class="text-xs font-semibold text-amber-500">Nodo de Decisión Condicional</p>
-                <p class="text-[10px] text-gray-400 mt-2">No recibe formulario de entrada porque deduce la condición en base al paso anterior.</p>
+              <div class="mt-4 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                <p class="text-xs font-semibold text-amber-500 mb-2">Nodo de Decisión</p>
+                <p class="text-[10px] text-gray-400 mb-3">Las rutas se definen al conectar flechas. Doble clic en una flecha para editar su nombre o eliminarla.</p>
+                
+                @if (paso.siguientes && getObjectKeys(paso.siguientes).length > 0) {
+                  <div class="space-y-2 mt-3">
+                    <p class="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Rutas configuradas</p>
+                    @for (key of getObjectKeys(paso.siguientes); track key) {
+                      <div class="flex items-center gap-2 bg-surface-800/50 rounded-lg px-3 py-2">
+                        <div class="w-2 h-2 rounded-full bg-amber-500 shrink-0"></div>
+                        <span class="text-xs text-amber-300 font-medium flex-1 truncate">{{ key }}</span>
+                        <svg class="w-3 h-3 text-gray-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                        <span class="text-[10px] text-gray-400 truncate">{{ paso.siguientes[key] }}</span>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <p class="text-[10px] text-gray-500 mt-2 italic">Sin rutas. Active el modo Flechas y conecte este nodo a otros pasos.</p>
+                }
               </div>
               <app-button variant="primary" size="sm" class="w-full mt-4" (click)="guardarPropiedades()">
                 Guardar Propiedades
@@ -411,6 +427,10 @@ export class AiChatSidebarComponent implements OnDestroy {
     });
   }
 
+
+  getObjectKeys(obj: Record<string, any>): string[] {
+    return obj ? Object.keys(obj) : [];
+  }
 
   generarConIA() {
     const prompt = (this.promptCtrl.value ?? '').trim();
