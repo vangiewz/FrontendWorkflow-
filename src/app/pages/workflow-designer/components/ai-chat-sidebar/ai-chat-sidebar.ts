@@ -239,6 +239,8 @@ interface WorkflowGenerationResponse {
                 <input 
                     [formControl]="globalCostoBaseCtrl"
                     type="number"
+                    min="0"
+                  step="1"
                     class="w-full bg-surface-800 border border-surface-700 rounded-lg p-2 text-sm text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all mt-1"
                     [title]="globalCategoriaCtrl.value === 'INTERNO' ? 'Trámites internos asumen costo 0 por defecto, pero puede ajustarse.' : 'Costo del trámite externo.'"
                 >
@@ -347,7 +349,8 @@ export class AiChatSidebarComponent implements OnDestroy {
       const n = this.globalNombreCtrl.value || 'Nuevo Trámite';
       const d = this.globalDescCtrl.value || '';
       const c = this.globalCategoriaCtrl.value || 'INTERNO';
-      const costo = Number(this.globalCostoBaseCtrl.value) || 0;
+      const costo = Math.max(0, Number(this.globalCostoBaseCtrl.value) || 0);
+      this.globalCostoBaseCtrl.setValue(costo, { emitEvent: false });
       
       this.workflowState.setWorkflowMetadata(n, d, c, costo);
       this.workflowState.setFormularioCliente(parsedForm);

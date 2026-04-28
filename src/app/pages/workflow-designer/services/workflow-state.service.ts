@@ -21,6 +21,8 @@ const DEFAULT_STATE: WorkflowEditorState = {
   isActive: true
 };
 
+const normalizeBaseCost = (value: number): number => Math.max(0, Number.isFinite(value) ? value : 0);
+
 @Injectable({
   providedIn: 'root'
 })
@@ -130,7 +132,7 @@ export class WorkflowStateService {
   }
 
   setWorkflowMetadata(nombre: string, descripcion: string, categoria: string = 'INTERNO', costoBase: number = 0) {
-    this.state.update(s => ({ ...s, workflowNombre: nombre, workflowDescripcion: descripcion, categoria: categoria, costoBase: costoBase }));
+    this.state.update(s => ({ ...s, workflowNombre: nombre, workflowDescripcion: descripcion, categoria: categoria, costoBase: normalizeBaseCost(costoBase) }));
   }
 
   setFormularioCliente(form: Record<string, any>) {
@@ -158,7 +160,7 @@ export class WorkflowStateService {
       workflowNombre: dto.nombre || 'Sin nombre',
       workflowDescripcion: dto.descripcion || '',
       categoria: dto.categoria || 'INTERNO',
-      costoBase: dto.costoBase || 0,
+      costoBase: normalizeBaseCost(dto.costoBase || 0),
       isActive: dto.isActive ?? true,
       formularioCliente: dto.formularioCliente || {},
       pasos: dto.pasos || [],
@@ -186,7 +188,7 @@ export class WorkflowStateService {
         workflowNombre: sync.nombre ?? s.workflowNombre,
         workflowDescripcion: sync.descripcion ?? s.workflowDescripcion,
         categoria: sync.categoria ?? s.categoria,
-        costoBase: sync.costoBase ?? s.costoBase,
+        costoBase: normalizeBaseCost(sync.costoBase ?? s.costoBase),
         formularioCliente: sync.formularioCliente ?? s.formularioCliente,
         pasos: sync.pasos ?? s.pasos,
         selectedPasoId: null
