@@ -18,14 +18,17 @@ import { StatsComponent } from './sections/stats/stats';
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <app-navbar />
-    <main>
-      <app-hero />
-      <app-features />
-      <app-how-it-works />
-      <app-stats />
-    </main>
-    <app-footer />
+    <!-- Añadimos este div contenedor con las clases de Tailwind -->
+    <div class="overflow-x-hidden w-full relative min-h-screen">
+      <app-navbar />
+      <main>
+        <app-hero />
+        <app-features />
+        <app-how-it-works />
+        <app-stats />
+      </main>
+      <app-footer />
+    </div>
   `,
 })
 export class LandingPage {}

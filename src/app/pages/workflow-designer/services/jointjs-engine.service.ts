@@ -15,6 +15,8 @@ export class JointjsEngineService {
   private paper!: joint.dia.Paper;
 
   private dragStartPosition: Point | null = null;
+  private lastTouchTap: { stepId: string; timestamp: number } | null = null;
+  private lastTouchLinkTap: { sourceId: string; targetId: string; currentLabel: string; timestamp: number } | null = null;
   private arrowMode = false;
 
 
@@ -26,6 +28,10 @@ export class JointjsEngineService {
   ) {
     this.zone.runOutsideAngular(() => {
       this.graph = new joint.dia.Graph({}, { cellNamespace: joint.shapes });
+      const isTouchDevice = this.isTouchDevice();
+      const openNodeProperties = (stepId: string) => {
+        this.zone.run(() => onNodeSelected(stepId));
+      };
 
       this.paper = new joint.dia.Paper({
         el: containerElement,
@@ -59,8 +65,31 @@ export class JointjsEngineService {
       this.paper.on('element:pointerdblclick', (elementView: any) => {
         const stepId = elementView.model.prop('custom/stepId');
         if (stepId) {
-          this.zone.run(() => onNodeSelected(stepId));
+          openNodeProperties(stepId);
         }
+      });
+
+      this.paper.on('element:pointerup', (elementView: any, evt: any) => {
+        if (!isTouchDevice || !this.isTouchEvent(evt)) {
+          return;
+        }
+
+        const stepId = elementView.model.prop('custom/stepId');
+        if (!stepId) {
+          return;
+        }
+
+        const now = Date.now();
+  const previousTap = this.lastTouchTap;
+  const isDoubleTap = previousTap !== null && previousTap.stepId === stepId && (now - previousTap.timestamp) <= 320;
+
+        if (isDoubleTap) {
+          this.lastTouchTap = null;
+          openNodeProperties(stepId);
+          return;
+        }
+
+        this.lastTouchTap = { stepId, timestamp: now };
       });
       
       this.paper.on('link:connect', (linkView: any) => {
@@ -70,19 +99,41 @@ export class JointjsEngineService {
           this.zone.run(() => onLinkCreated(s, t));
         }
       });
-      
+
       this.paper.on('link:pointerdblclick', (linkView: any) => {
-        const s = linkView.sourceView?.model.prop('custom/stepId');
-        const t = linkView.targetView?.model.prop('custom/stepId');
-        if (s && t) {
-          // Extract current label from the link
-          const labels = linkView.model.labels();
-          let currentLabel = 'default';
-          if (labels && labels.length > 0 && labels[0].attrs?.text?.text) {
-            currentLabel = labels[0].attrs.text.text;
-          }
-          this.zone.run(() => onLinkDblClick(s, t, currentLabel));
+        const linkInfo = this.getLinkTapInfo(linkView);
+        if (!linkInfo) {
+          return;
         }
+
+        this.zone.run(() => onLinkDblClick(linkInfo.sourceId, linkInfo.targetId, linkInfo.currentLabel));
+      });
+
+      this.paper.on('link:pointerup', (linkView: any, evt: any) => {
+        if (!isTouchDevice || !this.isTouchEvent(evt)) {
+          return;
+        }
+
+        const linkInfo = this.getLinkTapInfo(linkView);
+        if (!linkInfo) {
+          return;
+        }
+
+        const now = Date.now();
+        const previousTap = this.lastTouchLinkTap;
+        const isDoubleTap = previousTap !== null
+          && previousTap.sourceId === linkInfo.sourceId
+          && previousTap.targetId === linkInfo.targetId
+          && previousTap.currentLabel === linkInfo.currentLabel
+          && (now - previousTap.timestamp) <= 320;
+
+        if (isDoubleTap) {
+          this.lastTouchLinkTap = null;
+          this.zone.run(() => onLinkDblClick(linkInfo.sourceId, linkInfo.targetId, linkInfo.currentLabel));
+          return;
+        }
+
+        this.lastTouchLinkTap = { ...linkInfo, timestamp: now };
       });
     });
   }
@@ -119,6 +170,39 @@ export class JointjsEngineService {
       this.paper.scale(newScale, newScale);
       this.paper.translate(tx - (localPoint.x * newScale), ty - (localPoint.y * newScale));
     }, { passive: false });
+  }
+
+  private isTouchDevice(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    return window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+  }
+
+  private isTouchEvent(evt: any): boolean {
+    if (evt instanceof PointerEvent) {
+      return evt.pointerType === 'touch';
+    }
+
+    const touchEvent = evt as TouchEvent;
+    return typeof touchEvent.changedTouches !== 'undefined' && touchEvent.changedTouches.length > 0;
+  }
+
+  private getLinkTapInfo(linkView: any): { sourceId: string; targetId: string; currentLabel: string } | null {
+    const sourceId = linkView.sourceView?.model.prop('custom/stepId');
+    const targetId = linkView.targetView?.model.prop('custom/stepId');
+    if (!sourceId || !targetId) {
+      return null;
+    }
+
+    const labels = linkView.model.labels();
+    let currentLabel = 'default';
+    if (labels && labels.length > 0 && labels[0].attrs?.text?.text) {
+      currentLabel = labels[0].attrs.text.text;
+    }
+
+    return { sourceId, targetId, currentLabel };
   }
 
   public getGraph() { return this.graph; }
