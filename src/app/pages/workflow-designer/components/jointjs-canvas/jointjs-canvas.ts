@@ -12,7 +12,7 @@ import { DialogService } from '../../../../shared/dialog/dialog.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div 
-      class="w-full h-full relative overflow-hidden bg-surface-950" 
+      class="w-full h-full relative overflow-hidden bg-surface-950 touch-none lg:touch-auto" 
       #paperContainer
       (dragover)="onDragOver($event)"
       (drop)="onDrop($event)"

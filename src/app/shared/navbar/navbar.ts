@@ -4,6 +4,8 @@ import {
   signal,
   inject,
   PLATFORM_ID,
+  DestroyRef,
+  NgZone,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
@@ -11,18 +13,20 @@ import { ButtonComponent } from '../button/button';
 
 @Component({
   selector: 'app-navbar',
+  standalone: true,
   imports: [ButtonComponent, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <nav
-      [class]="isScrolled() ? 'glass-strong shadow-lg' : 'bg-transparent'"
-      class="fixed top-0 left-0 right-0 z-50 transition-all duration-500"
+      [class]="isScrolled() || mobileMenuOpen() ? 'glass-strong shadow-lg bg-gray-900/95 backdrop-blur-md' : 'bg-transparent'"
+      class="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
       aria-label="Navegación principal"
     >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16 lg:h-20">
+          
           <!-- Logo -->
-          <a href="#" class="flex items-center gap-3 group" aria-label="Inicio">
+          <a href="#" class="flex items-center gap-3 group shrink-0" aria-label="Inicio">
             <div
               class="w-9 h-9 rounded-lg bg-purple-700 flex items-center justify-center shadow-lg shadow-purple-700/40 group-hover:shadow-purple-600/50 transition-all duration-300"
             >
@@ -41,29 +45,30 @@ import { ButtonComponent } from '../button/button';
               </svg>
             </div>
             <span
-              class="text-lg font-bold text-white tracking-tight hidden sm:block"
-              >Workflows Inteligentes</span
+              class="text-lg font-bold text-white tracking-tight hidden sm:block truncate"
             >
+              Workflows Inteligentes
+            </span>
           </a>
 
           <!-- Desktop Navigation -->
-          <div class="hidden md:flex items-center gap-8">
+          <div class="hidden md:flex items-center gap-6 lg:gap-8">
             <a
               href="#features"
-              class="text-sm text-gray-400 hover:text-white transition-colors duration-300"
+              class="text-sm font-medium text-gray-300 hover:text-white transition-colors duration-300"
               >Características</a
             >
             <a
               href="#how-it-works"
-              class="text-sm text-gray-400 hover:text-white transition-colors duration-300"
+              class="text-sm font-medium text-gray-300 hover:text-white transition-colors duration-300"
               >Cómo Funciona</a
             >
             <a
               href="#stats"
-              class="text-sm text-gray-400 hover:text-white transition-colors duration-300"
+              class="text-sm font-medium text-gray-300 hover:text-white transition-colors duration-300"
               >Resultados</a
             >
-            <a routerLink="/login">
+            <a routerLink="/login" class="ml-2">
               <app-button variant="primary" size="sm">
                 Iniciar Sesión
               </app-button>
@@ -71,73 +76,94 @@ import { ButtonComponent } from '../button/button';
           </div>
 
           <!-- Mobile menu button -->
-          <button
-            class="md:hidden text-gray-400 hover:text-white p-2"
-            (click)="toggleMobileMenu()"
-            [attr.aria-expanded]="mobileMenuOpen()"
-            aria-label="Abrir menú de navegación"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="w-6 h-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="2"
-              aria-hidden="true"
+          <div class="flex items-center md:hidden">
+            <button
+              class="text-gray-300 hover:text-white p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors"
+              (click)="toggleMobileMenu()"
+              [attr.aria-expanded]="mobileMenuOpen()"
+              aria-label="Abrir menú de navegación"
             >
-              @if (mobileMenuOpen()) {
-                <path d="M6 18L18 6M6 6l12 12" />
-              } @else {
-                <path d="M4 6h16M4 12h16M4 18h16" />
-              }
-            </svg>
-          </button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="w-6 h-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+              >
+                @if (mobileMenuOpen()) {
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                } @else {
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                }
+              </svg>
+            </button>
+          </div>
         </div>
+      </div>
 
-        <!-- Mobile Navigation -->
-        @if (mobileMenuOpen()) {
-          <div class="md:hidden glass rounded-xl p-4 mb-4 animate-fade-in-up">
-            <div class="flex flex-col gap-3">
-              <a
-                href="#features"
-                class="text-sm text-gray-400 hover:text-white transition-colors py-2"
-                (click)="closeMobileMenu()"
-                >Características</a
-              >
-              <a
-                href="#how-it-works"
-                class="text-sm text-gray-400 hover:text-white transition-colors py-2"
-                (click)="closeMobileMenu()"
-                >Cómo Funciona</a
-              >
-              <a
-                href="#stats"
-                class="text-sm text-gray-400 hover:text-white transition-colors py-2"
-                (click)="closeMobileMenu()"
-                >Resultados</a
-              >
-              <a routerLink="/login" (click)="closeMobileMenu()">
+      <!-- Mobile Navigation Dropdown -->
+      @if (mobileMenuOpen()) {
+        <div class="md:hidden absolute w-full left-0 border-t border-gray-800/50 bg-gray-900/95 backdrop-blur-xl shadow-2xl animate-fade-in-up">
+          <div class="px-4 pt-2 pb-6 space-y-2 sm:px-6 flex flex-col">
+            <a
+              href="#features"
+              class="block px-3 py-3 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition-colors"
+              (click)="closeMobileMenu()"
+              >Características</a
+            >
+            <a
+              href="#how-it-works"
+              class="block px-3 py-3 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition-colors"
+              (click)="closeMobileMenu()"
+              >Cómo Funciona</a
+            >
+            <a
+              href="#stats"
+              class="block px-3 py-3 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition-colors"
+              (click)="closeMobileMenu()"
+              >Resultados</a
+            >
+            <div class="pt-4 pb-2">
+              <a routerLink="/login" (click)="closeMobileMenu()" class="block">
                 <app-button variant="primary" size="sm" [fullWidth]="true">
                   Iniciar Sesión
                 </app-button>
               </a>
             </div>
           </div>
-        }
-      </div>
+        </div>
+      }
     </nav>
   `,
 })
 export class NavbarComponent {
   private readonly platformId = inject(PLATFORM_ID);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly ngZone = inject(NgZone);
+
   protected readonly isScrolled = signal(false);
   protected readonly mobileMenuOpen = signal(false);
 
   constructor() {
     if (isPlatformBrowser(this.platformId)) {
-      window.addEventListener('scroll', () => {
-        this.isScrolled.set(window.scrollY > 20);
+      // Optimizamos el evento scroll corriendo fuera de la zona de Angular
+      this.ngZone.runOutsideAngular(() => {
+        const onScroll = () => {
+          const scrolled = window.scrollY > 20;
+          // Solo desencadena change detection si el estado realmente cambió
+          if (this.isScrolled() !== scrolled) {
+            this.ngZone.run(() => this.isScrolled.set(scrolled));
+          }
+        };
+
+        window.addEventListener('scroll', onScroll, { passive: true });
+
+        // Limpieza fundamental para evitar memory leaks al destruir el componente
+        this.destroyRef.onDestroy(() => {
+          window.removeEventListener('scroll', onScroll);
+        });
       });
     }
   }
