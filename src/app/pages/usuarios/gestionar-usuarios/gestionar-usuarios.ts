@@ -99,8 +99,8 @@ import { DialogService } from '../../../shared/dialog/dialog.service';
                         <select 
                           [ngModel]="u.departamentoId" 
                           (ngModelChange)="changeDepto(u.id, $event)"
-                          [disabled]="!u.isActive"
-                          class="bg-surface-800 border border-surface-700 text-gray-300 text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block w-full p-2 outline-none min-w-[150px] disabled:opacity-50"
+                          [disabled]="!u.isActive || (u.rol || '').trim().toUpperCase() === 'CLIENTE'"
+                          class="bg-surface-800 border border-surface-700 text-gray-300 text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block w-full p-2 outline-none min-w-[150px] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <option [value]="null">-- Sin Depto --</option>
                           @for (d of departamentos(); track d.id) {
@@ -179,6 +179,10 @@ export class GestionarUsuariosPage implements OnInit {
     this.usuarioService.updateRol(id, newRol).subscribe({
       next: (res) => {
         this.usuarios.update(us => us.map(u => u.id === id ? res : u));
+        // Si el nuevo rol es CLIENTE, el backend ya limpia el departamento → reflejarlo localmente
+        if (newRol.toUpperCase() === 'CLIENTE') {
+          this.usuarios.update(us => us.map(u => u.id === id ? { ...u, departamentoId: null as any } : u));
+        }
         this.mostrarExito('Rol actualizado correctamente');
       },
       error: (e) => this.mostrarError(e.error?.error || 'Error al cambiar rol')
@@ -186,11 +190,7 @@ export class GestionarUsuariosPage implements OnInit {
   }
 
   changeDepto(id: string, newDeptoId: string | null) {
-    if (!newDeptoId || newDeptoId === 'null') {
-        this.mostrarError('No se puede dejar sin departamento con este payload por ahora');
-        return;
-    }
-    this.usuarioService.assignDepartamento(id, newDeptoId).subscribe({
+    this.usuarioService.assignDepartamento(id, newDeptoId ?? '').subscribe({
       next: (res) => {
         this.usuarios.update(us => us.map(u => u.id === id ? res : u));
         this.mostrarExito('Departamento asignado correctamente');
