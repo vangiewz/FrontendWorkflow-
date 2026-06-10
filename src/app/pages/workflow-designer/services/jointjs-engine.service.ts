@@ -15,6 +15,8 @@ export class JointjsEngineService {
   private paper!: joint.dia.Paper;
 
   private dragStartPosition: Point | null = null;
+  private lastTouchTap: { stepId: string; timestamp: number } | null = null;
+  private lastTouchLinkTap: { sourceId: string; targetId: string; currentLabel: string; timestamp: number } | null = null;
   private arrowMode = false;
 
 
@@ -22,10 +24,14 @@ export class JointjsEngineService {
     containerElement: HTMLElement, 
     onNodeSelected: (id: string) => void, 
     onLinkCreated: (source: string, target: string) => void,
-    onLinkDeleted: (source: string, target: string) => void
+    onLinkDblClick: (source: string, target: string, currentLabel: string) => void
   ) {
     this.zone.runOutsideAngular(() => {
       this.graph = new joint.dia.Graph({}, { cellNamespace: joint.shapes });
+      const isTouchDevice = this.isTouchDevice();
+      const openNodeProperties = (stepId: string) => {
+        this.zone.run(() => onNodeSelected(stepId));
+      };
 
       this.paper = new joint.dia.Paper({
         el: containerElement,
@@ -59,8 +65,31 @@ export class JointjsEngineService {
       this.paper.on('element:pointerdblclick', (elementView: any) => {
         const stepId = elementView.model.prop('custom/stepId');
         if (stepId) {
-          this.zone.run(() => onNodeSelected(stepId));
+          openNodeProperties(stepId);
         }
+      });
+
+      this.paper.on('element:pointerup', (elementView: any, evt: any) => {
+        if (!isTouchDevice || !this.isTouchEvent(evt)) {
+          return;
+        }
+
+        const stepId = elementView.model.prop('custom/stepId');
+        if (!stepId) {
+          return;
+        }
+
+        const now = Date.now();
+  const previousTap = this.lastTouchTap;
+  const isDoubleTap = previousTap !== null && previousTap.stepId === stepId && (now - previousTap.timestamp) <= 320;
+
+        if (isDoubleTap) {
+          this.lastTouchTap = null;
+          openNodeProperties(stepId);
+          return;
+        }
+
+        this.lastTouchTap = { stepId, timestamp: now };
       });
       
       this.paper.on('link:connect', (linkView: any) => {
@@ -70,13 +99,41 @@ export class JointjsEngineService {
           this.zone.run(() => onLinkCreated(s, t));
         }
       });
-      
+
       this.paper.on('link:pointerdblclick', (linkView: any) => {
-        const s = linkView.sourceView?.model.prop('custom/stepId');
-        const t = linkView.targetView?.model.prop('custom/stepId');
-        if (s && t) {
-          this.zone.run(() => onLinkDeleted(s, t));
+        const linkInfo = this.getLinkTapInfo(linkView);
+        if (!linkInfo) {
+          return;
         }
+
+        this.zone.run(() => onLinkDblClick(linkInfo.sourceId, linkInfo.targetId, linkInfo.currentLabel));
+      });
+
+      this.paper.on('link:pointerup', (linkView: any, evt: any) => {
+        if (!isTouchDevice || !this.isTouchEvent(evt)) {
+          return;
+        }
+
+        const linkInfo = this.getLinkTapInfo(linkView);
+        if (!linkInfo) {
+          return;
+        }
+
+        const now = Date.now();
+        const previousTap = this.lastTouchLinkTap;
+        const isDoubleTap = previousTap !== null
+          && previousTap.sourceId === linkInfo.sourceId
+          && previousTap.targetId === linkInfo.targetId
+          && previousTap.currentLabel === linkInfo.currentLabel
+          && (now - previousTap.timestamp) <= 320;
+
+        if (isDoubleTap) {
+          this.lastTouchLinkTap = null;
+          this.zone.run(() => onLinkDblClick(linkInfo.sourceId, linkInfo.targetId, linkInfo.currentLabel));
+          return;
+        }
+
+        this.lastTouchLinkTap = { ...linkInfo, timestamp: now };
       });
     });
   }
@@ -115,6 +172,39 @@ export class JointjsEngineService {
     }, { passive: false });
   }
 
+  private isTouchDevice(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    return window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+  }
+
+  private isTouchEvent(evt: any): boolean {
+    if (evt instanceof PointerEvent) {
+      return evt.pointerType === 'touch';
+    }
+
+    const touchEvent = evt as TouchEvent;
+    return typeof touchEvent.changedTouches !== 'undefined' && touchEvent.changedTouches.length > 0;
+  }
+
+  private getLinkTapInfo(linkView: any): { sourceId: string; targetId: string; currentLabel: string } | null {
+    const sourceId = linkView.sourceView?.model.prop('custom/stepId');
+    const targetId = linkView.targetView?.model.prop('custom/stepId');
+    if (!sourceId || !targetId) {
+      return null;
+    }
+
+    const labels = linkView.model.labels();
+    let currentLabel = 'default';
+    if (labels && labels.length > 0 && labels[0].attrs?.text?.text) {
+      currentLabel = labels[0].attrs.text.text;
+    }
+
+    return { sourceId, targetId, currentLabel };
+  }
+
   public getGraph() { return this.graph; }
   public getPaper() { return this.paper; }
   public isInitialized() { return !!this.paper; }
@@ -136,7 +226,13 @@ export class JointjsEngineService {
 
       g.setNode('Start', { width: 40, height: 40 });
       g.setNode('Inicio', { width: 160, height: 60 });
-      pasos.forEach(p => g.setNode(p.id, { width: p.tipo === 'DECISION' ? 100 : 160, height: p.tipo === 'DECISION' ? 100 : 60 }));
+      pasos.forEach(p => {
+          let w = 160;
+          let h = 60;
+          if (p.tipo === 'DECISION') { w = 100; h = 100; }
+          if (p.tipo === 'FORK' || p.tipo === 'JOIN') { w = 120; h = 12; }
+          g.setNode(p.id, { width: w, height: h });
+      });
       g.setNode('Notificacion', { width: 160, height: 60 });
       g.setNode('End', { width: 40, height: 40 });
 
@@ -191,7 +287,7 @@ export class JointjsEngineService {
 
       const jointNodes = new Map<string, joint.dia.Element>();
       
-      const createNode = (id: string, deptoId: string, tipo: 'estatico' | 'ACTIVIDAD' | 'DECISION', label: string, color: string) => {
+      const createNode = (id: string, deptoId: string, tipo: 'estatico' | 'ACTIVIDAD' | 'DECISION' | 'FORK' | 'JOIN', label: string, color: string) => {
           const lane = laneMap.get(deptoId) || laneMap.get('Cliente');
           const laneIndex = deptoIds.indexOf(deptoId === 'Cliente' ? 'Cliente' : deptoId || 'Cliente') === -1 ? 0 : deptoIds.indexOf(deptoId === 'Cliente' ? 'Cliente' : deptoId || 'Cliente');
           const dy = g.node(id).y;
@@ -209,6 +305,13 @@ export class JointjsEngineService {
               el.attr({
                   body: { refPoints: '0,50 50,0 100,50 50,100', fill: '#1E293B', stroke: '#F59E0B', strokeWidth: 2, magnet: true },
                   label: { text: joint.util.breakText(label, { width: dw - 20 }), fill: '#F8FAFC', fontSize: 11, refY: '50%', textVerticalAnchor: 'middle', pointerEvents: 'none' }
+              });
+          } else if (tipo === 'FORK' || tipo === 'JOIN') {
+              el = new joint.shapes.standard.Rectangle();
+              el.resize(dw, dh);
+              el.attr({
+                  body: { fill: '#000000', stroke: '#F8FAFC', strokeWidth: 1, rx: 2, ry: 2, magnet: true },
+                  label: { text: '', pointerEvents: 'none' }
               });
           } else if (tipo === 'estatico' && id === 'Start') {
               el = new joint.shapes.standard.Circle();
@@ -250,15 +353,20 @@ export class JointjsEngineService {
           const t = jointNodes.get(tId);
           if (!s || !t) return;
           const link = new joint.shapes.standard.Link();
-          link.source(s).target(t).router('manhattan', { step: 15, padding: 15 }).connector('rounded');
-          link.attr({ line: { stroke: '#64748B', strokeWidth: 2, targetMarker: { type: 'path', d: 'M 10 -5 0 0 10 5 z', fill: '#64748B' } }});
           
-          if (edgeLabel && edgeLabel !== 'default') {
+          const isDecisionRoute = edgeLabel && edgeLabel !== 'default';
+          const lineColor = isDecisionRoute ? '#F59E0B' : '#64748B';
+          
+          link.source(s).target(t).router('manhattan', { step: 15, padding: 15 }).connector('rounded');
+          link.attr({ line: { stroke: lineColor, strokeWidth: isDecisionRoute ? 2.5 : 2, targetMarker: { type: 'path', d: 'M 10 -5 0 0 10 5 z', fill: lineColor } }});
+          
+          if (isDecisionRoute) {
               link.labels([{
                   attrs: {
-                      text: { text: edgeLabel, fill: '#F8FAFC', fontSize: 11, fontFamily: 'sans-serif' },
-                      rect: { fill: '#1E293B', stroke: '#475569', strokeWidth: 1, rx: 4, ry: 4 }
-                  }
+                      text: { text: edgeLabel, fill: '#FFF', fontSize: 12, fontFamily: 'sans-serif', fontWeight: 'bold' },
+                      rect: { fill: '#92400E', stroke: '#F59E0B', strokeWidth: 1.5, rx: 6, ry: 6, 'ref-width': 12, 'ref-height': 6 }
+                  },
+                  position: { distance: 0.5, offset: 0, args: { keepGradient: true } }
               }]);
           }
           link.addTo(this.graph);
@@ -271,7 +379,8 @@ export class JointjsEngineService {
               if (paso && paso.siguientes) {
                   // Find exactly which key bridges to this target
                   const actionLabel = Object.keys(paso.siguientes).find(k => paso.siguientes[k] === e.w);
-                  linkFactory(e.v, e.w, actionLabel);
+                  const displayLabel = (actionLabel && actionLabel !== 'default' && !actionLabel.startsWith('path_')) ? actionLabel : undefined;
+                  linkFactory(e.v, e.w, displayLabel);
               } else {
                   linkFactory(e.v, e.w);
               }

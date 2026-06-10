@@ -16,18 +16,19 @@ import { DialogService } from '../../../shared/dialog/dialog.service';
     <div class="min-h-screen flex">
       <app-sidebar [isMobile]="false" />
 
-      <div class="flex-1 flex flex-col">
-        <header class="h-16 border-b border-purple-900/20 bg-surface-900/50 backdrop-blur-sm flex items-center justify-between px-6 shrink-0">
-          <h2 class="text-lg font-semibold text-white">Gestión de Workflows</h2>
+      <div class="flex-1 flex flex-col min-w-0">
+        <header class="min-h-[4rem] border-b border-purple-900/20 bg-surface-900/50 backdrop-blur-sm flex items-center justify-between px-4 sm:px-6 shrink-0 py-2 sm:py-0 flex-wrap gap-2">
+          <h2 class="text-base sm:text-lg font-semibold text-white">Gestión de Workflows</h2>
           <app-button variant="primary" size="sm" routerLink="/designer">
             <span class="flex items-center gap-2">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-              Crear Nuevo Workflow
+              <span class="hidden sm:inline">Crear Nuevo Workflow</span>
+              <span class="sm:hidden">Crear</span>
             </span>
           </app-button>
         </header>
 
-        <main class="flex-1 p-6 lg:p-8 overflow-auto">
+        <main class="flex-1 p-4 lg:p-8 overflow-y-auto min-w-0">
           <!-- Loading -->
           @if (isLoading()) {
             <div class="flex justify-center items-center py-20">
@@ -55,74 +56,76 @@ import { DialogService } from '../../../shared/dialog/dialog.service';
           <!-- Workflows Table -->
           @if (!isLoading() && workflows().length > 0) {
             <div class="glass rounded-2xl overflow-hidden">
-              <table class="w-full">
-                <thead>
-                  <tr class="border-b border-surface-700">
-                    <th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-6 py-4">Nombre</th>
-                    <th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-6 py-4">Categoría</th>
-                    <th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-6 py-4">Costo</th>
-                    <th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-6 py-4">Pasos</th>
-                    <th class="text-center text-xs font-semibold text-gray-400 uppercase tracking-wider px-6 py-4">Estado</th>
-                    <th class="text-center text-xs font-semibold text-gray-400 uppercase tracking-wider px-6 py-4">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (wf of workflows(); track wf.id) {
-                    <tr class="border-b border-surface-800 hover:bg-surface-800/50 transition-colors">
-                      <td class="px-6 py-4">
-                        <div>
-                          <p class="text-sm font-medium text-white">{{ wf.nombre }}</p>
-                          <p class="text-xs text-gray-500 mt-0.5 max-w-xs truncate">{{ wf.descripcion || 'Sin descripción' }}</p>
-                        </div>
-                      </td>
-                      <td class="px-6 py-4">
-                        <span 
-                          class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border"
-                          [class.bg-emerald-500/10]="wf.categoria === 'INTERNO'"
-                          [class.text-emerald-400]="wf.categoria === 'INTERNO'" 
-                          [class.border-emerald-500/20]="wf.categoria === 'INTERNO'"
-                          [class.bg-violet-500/10]="wf.categoria === 'EXTERNO'"
-                          [class.text-violet-400]="wf.categoria === 'EXTERNO'"
-                          [class.border-violet-500/20]="wf.categoria === 'EXTERNO'"
-                        >
-                          {{ wf.categoria }}
-                        </span>
-                      </td>
-                      <td class="px-6 py-4">
-                        <span class="text-sm text-gray-300">{{ wf.costoBase > 0 ? ('USDT. ' + wf.costoBase) : 'Gratis' }}</span>
-                      </td>
-                      <td class="px-6 py-4">
-                        <span class="text-sm text-gray-300">{{ wf.pasos.length || 0 }} pasos</span>
-                      </td>
-                      <td class="px-6 py-4 text-center">
-                        <button 
-                          (click)="toggleActive(wf)"
-                          class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-surface-900"
-                          [class.bg-emerald-500]="wf.isActive"
-                          [class.bg-surface-600]="!wf.isActive"
-                        >
-                          <span 
-                            class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200"
-                            [class.translate-x-6]="wf.isActive"
-                            [class.translate-x-1]="!wf.isActive"
-                          ></span>
-                        </button>
-                      </td>
-                      <td class="px-6 py-4 text-center">
-                        <div class="flex justify-center gap-2">
-                          <button 
-                            (click)="editWorkflow(wf)"
-                            class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-300 bg-purple-700/20 border border-purple-700/30 rounded-lg hover:bg-purple-700/30 transition-colors"
-                          >
-                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                            Editar
-                          </button>
-                        </div>
-                      </td>
+              <div class="overflow-x-auto">
+                <table class="w-full">
+                  <thead>
+                    <tr class="border-b border-surface-700">
+                      <th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 sm:px-6 py-4 whitespace-nowrap">Nombre</th>
+                      <th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 sm:px-6 py-4 whitespace-nowrap">Categoría</th>
+                      <th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 sm:px-6 py-4 whitespace-nowrap">Costo</th>
+                      <th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 sm:px-6 py-4 whitespace-nowrap">Pasos</th>
+                      <th class="text-center text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 sm:px-6 py-4 whitespace-nowrap">Estado</th>
+                      <th class="text-center text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 sm:px-6 py-4 whitespace-nowrap">Acciones</th>
                     </tr>
-                  }
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    @for (wf of workflows(); track wf.id) {
+                      <tr class="border-b border-surface-800 hover:bg-surface-800/50 transition-colors">
+                        <td class="px-4 sm:px-6 py-4">
+                          <div>
+                            <p class="text-sm font-medium text-white whitespace-nowrap">{{ wf.nombre }}</p>
+                            <p class="text-xs text-gray-500 mt-0.5 max-w-[150px] sm:max-w-xs truncate">{{ wf.descripcion || 'Sin descripción' }}</p>
+                          </div>
+                        </td>
+                        <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                          <span 
+                            class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border"
+                            [class.bg-emerald-500/10]="wf.categoria === 'INTERNO'"
+                            [class.text-emerald-400]="wf.categoria === 'INTERNO'" 
+                            [class.border-emerald-500/20]="wf.categoria === 'INTERNO'"
+                            [class.bg-violet-500/10]="wf.categoria === 'EXTERNO'"
+                            [class.text-violet-400]="wf.categoria === 'EXTERNO'"
+                            [class.border-violet-500/20]="wf.categoria === 'EXTERNO'"
+                          >
+                            {{ wf.categoria }}
+                          </span>
+                        </td>
+                        <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                          <span class="text-sm text-gray-300">{{ wf.costoBase > 0 ? ('USD. ' + wf.costoBase) : 'Gratis' }}</span>
+                        </td>
+                        <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                          <span class="text-sm text-gray-300">{{ wf.pasos.length || 0 }} pasos</span>
+                        </td>
+                        <td class="px-4 sm:px-6 py-4 text-center whitespace-nowrap">
+                          <button 
+                            (click)="toggleActive(wf)"
+                            class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-surface-900"
+                            [class.bg-emerald-500]="wf.isActive"
+                            [class.bg-surface-600]="!wf.isActive"
+                          >
+                            <span 
+                              class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200"
+                              [class.translate-x-6]="wf.isActive"
+                              [class.translate-x-1]="!wf.isActive"
+                            ></span>
+                          </button>
+                        </td>
+                        <td class="px-4 sm:px-6 py-4 text-center whitespace-nowrap">
+                          <div class="flex justify-center gap-2">
+                            <button 
+                              (click)="editWorkflow(wf)"
+                              class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-300 bg-purple-700/20 border border-purple-700/30 rounded-lg hover:bg-purple-700/30 transition-colors"
+                            >
+                              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                              Editar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
             </div>
           }
         </main>

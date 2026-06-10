@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { UsuarioService, UsuarioResponse } from '../../../services/usuario.service';
@@ -13,16 +13,19 @@ import { DialogService } from '../../../shared/dialog/dialog.service';
   imports: [CommonModule, RouterLink, FormsModule],
   template: `
     <div class="min-h-screen bg-surface-950 flex flex-col font-sans">
-      <header class="h-16 border-b border-surface-800 bg-surface-900/80 backdrop-blur-sm flex items-center px-6 shrink-0 z-20">
-        <a routerLink="/dashboard" class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
-          <span class="font-medium text-sm">Volver</span>
-        </a>
-        <div class="h-6 w-px bg-surface-700 mx-4"></div>
-        <h1 class="text-xl font-bold text-white tracking-tight flex-1">Gestionar Usuarios</h1>
-        <a routerLink="/usuarios/crear" class="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors text-sm font-medium">
+      <header class="min-h-[4rem] py-2 sm:py-0 border-b border-surface-800 bg-surface-900/80 backdrop-blur-sm flex flex-wrap items-center justify-between px-4 sm:px-6 shrink-0 z-20 gap-2">
+        <div class="flex items-center gap-2 sm:gap-4">
+          <a routerLink="/dashboard" class="flex items-center gap-1 sm:gap-2 text-gray-400 hover:text-white transition-colors">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+            <span class="font-medium text-sm hidden sm:block">Volver</span>
+          </a>
+          <div class="h-6 w-px bg-surface-700 hidden sm:block"></div>
+          <h1 class="text-lg sm:text-xl font-bold text-white tracking-tight">Gestionar Usuarios</h1>
+        </div>
+        <a routerLink="/usuarios/crear" class="flex items-center gap-1 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors text-xs sm:text-sm font-medium whitespace-nowrap">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          Crear Usuario
+          <span class="hidden sm:inline">Crear Usuario</span>
+          <span class="sm:hidden">Crear</span>
         </a>
       </header>
 
@@ -53,7 +56,7 @@ import { DialogService } from '../../../shared/dialog/dialog.service';
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-surface-800">
-                  @for (u of usuarios(); track u.id) {
+                  @for (u of personal(); track u.id) {
                     <tr class="hover:bg-surface-800/30 transition-colors">
                       <td class="p-4">
                         <div class="flex items-center gap-3">
@@ -82,21 +85,22 @@ import { DialogService } from '../../../shared/dialog/dialog.service';
                       </td>
                       <td class="p-4">
                         <select 
-                          [ngModel]="u.rol" 
+                          [ngModel]="(u.rol || '').trim().toUpperCase()" 
                           (ngModelChange)="changeRol(u.id, $event)"
                           [disabled]="!u.isActive"
                           class="bg-surface-800 border border-surface-700 text-gray-300 text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block w-full p-2 outline-none disabled:opacity-50"
                         >
                           <option value="ADMIN">ADMIN</option>
                           <option value="FUNCIONARIO">FUNCIONARIO</option>
+                          <option value="CLIENTE">CLIENTE</option>
                         </select>
                       </td>
                       <td class="p-4">
                         <select 
                           [ngModel]="u.departamentoId" 
                           (ngModelChange)="changeDepto(u.id, $event)"
-                          [disabled]="!u.isActive"
-                          class="bg-surface-800 border border-surface-700 text-gray-300 text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block w-full p-2 outline-none min-w-[150px] disabled:opacity-50"
+                          [disabled]="!u.isActive || (u.rol || '').trim().toUpperCase() === 'CLIENTE'"
+                          class="bg-surface-800 border border-surface-700 text-gray-300 text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block w-full p-2 outline-none min-w-[150px] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <option [value]="null">-- Sin Depto --</option>
                           @for (d of departamentos(); track d.id) {
@@ -157,6 +161,8 @@ export class GestionarUsuariosPage implements OnInit {
   readonly usuarios = signal<UsuarioResponse[]>([]);
   readonly departamentos = signal<Departamento[]>([]);
 
+  readonly personal = computed(() => this.usuarios().filter(u => !u.rol || u.rol.trim().toUpperCase() !== 'CLIENTE'));
+
   readonly errorMessage = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
 
@@ -171,23 +177,32 @@ export class GestionarUsuariosPage implements OnInit {
 
   changeRol(id: string, newRol: string) {
     this.usuarioService.updateRol(id, newRol).subscribe({
-      next: (res) => {
-        this.usuarios.update(us => us.map(u => u.id === id ? res : u));
-        this.mostrarExito('Rol actualizado correctamente');
+      next: (res: any) => {
+        this.usuarios.update(us => us.map(u => {
+          if (u.id === id) {
+            // Si es respuesta offline (encolada), actualizamos optimistamente
+            if (res?.offline) return { ...u, rol: newRol, departamentoId: newRol.toUpperCase() === 'CLIENTE' ? null : u.departamentoId };
+            return res;
+          }
+          return u;
+        }));
+        this.mostrarExito(res?.offline ? 'Rol encolado para guardar' : 'Rol actualizado correctamente');
       },
       error: (e) => this.mostrarError(e.error?.error || 'Error al cambiar rol')
     });
   }
 
   changeDepto(id: string, newDeptoId: string | null) {
-    if (!newDeptoId || newDeptoId === 'null') {
-        this.mostrarError('No se puede dejar sin departamento con este payload por ahora');
-        return;
-    }
-    this.usuarioService.assignDepartamento(id, newDeptoId).subscribe({
-      next: (res) => {
-        this.usuarios.update(us => us.map(u => u.id === id ? res : u));
-        this.mostrarExito('Departamento asignado correctamente');
+    this.usuarioService.assignDepartamento(id, newDeptoId ?? '').subscribe({
+      next: (res: any) => {
+        this.usuarios.update(us => us.map(u => {
+          if (u.id === id) {
+            if (res?.offline) return { ...u, departamentoId: newDeptoId as any };
+            return res;
+          }
+          return u;
+        }));
+        this.mostrarExito(res?.offline ? 'Departamento encolado' : 'Departamento asignado correctamente');
       },
       error: (e) => this.mostrarError(e.error?.error || 'Error asignando departamento')
     });
@@ -197,9 +212,15 @@ export class GestionarUsuariosPage implements OnInit {
     this.dialogService.prompt('Cambiar Teléfono', 'Ingrese el nuevo teléfono. Déjelo vacío para eliminar.', currently || '').subscribe(p => {
       if (p === null) return;
       this.usuarioService.updateTelefono(id, p).subscribe({
-        next: (res) => {
-          this.usuarios.update(us => us.map(u => u.id === id ? res : u));
-          this.mostrarExito('Teléfono actualizado correctamente');
+        next: (res: any) => {
+          this.usuarios.update(us => us.map(u => {
+            if (u.id === id) {
+              if (res?.offline) return { ...u, telefono: p };
+              return res;
+            }
+            return u;
+          }));
+          this.mostrarExito(res?.offline ? 'Teléfono encolado' : 'Teléfono actualizado correctamente');
         },
         error: (e) => this.mostrarError(e.error?.error || 'Error actualizando teléfono')
       });

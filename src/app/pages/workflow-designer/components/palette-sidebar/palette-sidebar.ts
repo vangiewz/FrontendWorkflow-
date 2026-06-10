@@ -1,6 +1,7 @@
 import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { WorkflowStateService } from '../../services/workflow-state.service';
+import { ToastService } from '../../../../shared/toast/toast.service';
 
 @Component({
   selector: 'app-palette-sidebar',
@@ -36,6 +37,7 @@ import { WorkflowStateService } from '../../services/workflow-state.service';
             <div 
               draggable="true"
               (dragstart)="onDragStart($event, 'Actividad')"
+              (click)="onItemClick('Actividad')"
               class="bg-surface-800 border border-surface-700 p-3 rounded-lg text-xs text-center text-gray-300 cursor-grab active:cursor-grabbing hover:border-purple-500 hover:text-purple-400 transition-colors flex flex-col items-center gap-2"
             >
               <div class="w-6 h-4 rounded border-2 border-purple-500 bg-transparent"></div>
@@ -44,10 +46,29 @@ import { WorkflowStateService } from '../../services/workflow-state.service';
             <div 
               draggable="true"
               (dragstart)="onDragStart($event, 'Decisión')"
+              (click)="onItemClick('Decisión')"
               class="bg-surface-800 border border-surface-700 p-3 rounded-lg text-xs text-center text-gray-300 cursor-grab active:cursor-grabbing hover:border-amber-500 hover:text-amber-400 transition-colors flex flex-col items-center gap-2"
             >
               <div class="w-4 h-4 rounded-sm border-2 border-amber-500 bg-transparent rotate-45 mt-1 mb-1"></div>
               Decisión
+            </div>
+            <div 
+              draggable="true"
+              (dragstart)="onDragStart($event, 'Fork')"
+              (click)="onItemClick('Fork')"
+              class="bg-surface-800 border border-surface-700 p-3 rounded-lg text-xs text-center text-gray-300 cursor-grab active:cursor-grabbing hover:border-blue-500 hover:text-blue-400 transition-colors flex flex-col items-center gap-2"
+            >
+              <div class="w-8 h-1.5 rounded-sm bg-blue-500 mt-2 mb-2"></div>
+              Fork (Paralelo)
+            </div>
+            <div 
+              draggable="true"
+              (dragstart)="onDragStart($event, 'Join')"
+              (click)="onItemClick('Join')"
+              class="bg-surface-800 border border-surface-700 p-3 rounded-lg text-xs text-center text-gray-300 cursor-grab active:cursor-grabbing hover:border-indigo-500 hover:text-indigo-400 transition-colors flex flex-col items-center gap-2"
+            >
+              <div class="w-8 h-1.5 rounded-sm bg-indigo-500 mt-2 mb-2"></div>
+              Join (Unir)
             </div>
           </div>
         </div>
@@ -59,6 +80,7 @@ import { WorkflowStateService } from '../../services/workflow-state.service';
               <div 
                 draggable="true"
                 (dragstart)="onDragStart($event, depto.id)"
+                (click)="onItemClick(depto.id)"
                 class="bg-surface-800/50 border border-surface-700 w-full p-2.5 rounded-lg text-xs text-gray-300 cursor-grab active:cursor-grabbing hover:bg-surface-800 hover:border-emerald-500 transition-colors flex items-center gap-2"
               >
                 <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
@@ -74,15 +96,19 @@ import { WorkflowStateService } from '../../services/workflow-state.service';
 })
 export class PaletteSidebarComponent {
   workflowState = inject(WorkflowStateService);
+  private toast = inject(ToastService);
   
   onDragStart(event: DragEvent, type: string) {
     if (event.dataTransfer) {
       event.dataTransfer.setData('text/plain', type);
       event.dataTransfer.effectAllowed = 'copy';
-      
-      // Opcional: configurar una preview image ghost
-      // event.dataTransfer.setDragImage(dummyElement, x, y);
     }
+  }
+
+  onItemClick(type: string) {
+    // Si la pantalla es táctil/móvil, el click agrega el nodo directamente
+    this.workflowState.appendNode(type);
+    this.toast.success(`Se añadió: ${type === 'Actividad' || type === 'Decisión' ? type : 'Nuevo carril'} al diagrama.`);
   }
 }
 

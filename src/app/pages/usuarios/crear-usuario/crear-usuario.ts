@@ -126,12 +126,12 @@ function generateSecurePassword(length = 12): string {
               </div>
             </div>
 
-            <!-- Rol -->
             <div class="flex flex-col gap-1.5">
               <label class="text-sm font-medium text-gray-300">Rol del Sistema</label>
               <select formControlName="rol" class="bg-surface-800 border border-surface-700 rounded-xl px-4 py-2.5 text-gray-100 outline-none focus:ring-2 focus:ring-purple-500/50 appearance-none">
                 <option value="FUNCIONARIO">Funcionario</option>
                 <option value="ADMIN">Administrador</option>
+                <option value="CLIENTE">Cliente</option>
               </select>
             </div>
 

@@ -1,7 +1,7 @@
 import { Component, ChangeDetectionStrategy, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { TramiteService, TramiteDTO } from '../../../services/tramite.service';
+import { AsistenteFormularioResponse, TramiteService, TramiteDTO } from '../../../services/tramite.service';
 import { WorkflowService, PasoGenerado, PlantillaWorkflowDTO } from '../../../services/workflow.service';
 import { DepartamentoService, Departamento } from '../../../services/departamento.service';
 import { AuthService } from '../../../services/auth.service';
@@ -11,11 +11,12 @@ import { UsuarioService } from '../../../services/usuario.service';
 import { TramiteTimelineComponent } from './components/tramite-timeline.component';
 import { TramiteFormViewerComponent } from './components/tramite-form-viewer.component';
 import { ClientDataModalComponent } from './components/client-data-modal.component';
+import { VisorDocumentoModalComponent } from './components/visor-documento-modal.component';
 
 @Component({
   selector: 'app-tramite-detalle',
   standalone: true,
-  imports: [CommonModule, RouterLink, TramiteTimelineComponent, TramiteFormViewerComponent, ClientDataModalComponent],
+  imports: [CommonModule, RouterLink, TramiteTimelineComponent, TramiteFormViewerComponent, ClientDataModalComponent, VisorDocumentoModalComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="min-h-screen bg-surface-950 flex flex-col font-sans">
@@ -62,7 +63,7 @@ import { ClientDataModalComponent } from './components/client-data-modal.compone
             <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Registro de Fases</h3>
             <app-tramite-timeline
                [pasosOrdenados]="pasosOrdenados()"
-               [actualStepId]="t.pasoActualId"
+               [activeStepIds]="activeStepIdsForUser()"
                [selectedStepId]="selectedStepId()"
                [tramite]="t"
                [departamentos]="departamentos()"
@@ -85,14 +86,20 @@ import { ClientDataModalComponent } from './components/client-data-modal.compone
                </div>
              } @else if (selectedStep()) {
                <app-tramite-form-viewer
+                  [tramiteId]="t.id"
+                  [documentos]="t.documentos || []"
                   [step]="selectedStep()"
                   [departamentoName]="getDepartamentoNombre(selectedStep()!.departamentoId)"
                   [isReadOnly]="isSelectedStepCompleted()"
                   [canRespond]="canRespondToSelected()"
                   [formAnswers]="getSelectedStepAnswers()"
                   [isSubmitting]="isSubmitting()"
+                  [isAssisting]="isAssisting()"
+                  [iaPrefill]="aiPrefill()"
                   (opcionSeleccionada)="resolverDecision(selectedStep()!.id, $event)"
                   (formularioEnviado)="completarPaso(selectedStep()!.id, $event)"
+                  (asistenciaSolicitada)="asistirFormulario($event)"
+                  (abrirDocumento)="manejarAbrirDocumento($event)"
                ></app-tramite-form-viewer>
              } @else {
                <!-- Default empty state if En_Progreso but nothing explicitly selected and no pasoActual -->
@@ -108,8 +115,21 @@ import { ClientDataModalComponent } from './components/client-data-modal.compone
              [loading]="clientModalLoading()"
              [clientInfo]="clientInfo()"
              [initialForm]="t.datosFormularioCliente"
+             [documentos]="t.documentos || []"
              (close)="showClientModal.set(false)"
           ></app-client-data-modal>
+
+          <app-visor-documento-modal
+             [isOpen]="modalDocumentoAbierto()"
+             [tramiteId]="t.id"
+             [campoConfig]="campoActivoParaDocumento()"
+             [archivoMetadata]="metadataDocumentoActivo()"
+             [formato]="campoActivoParaDocumento()?.format || 'WORD'"
+             [rolUsuario]="getRolUsuarioActual()"
+             [departamentoUsuario]="getDepartamentoUsuarioActual()"
+             (close)="modalDocumentoAbierto.set(false)"
+             (guardado)="documentoGuardado($event)"
+          ></app-visor-documento-modal>
 
         }
       </main>
@@ -132,6 +152,8 @@ export class TramiteDetallePage implements OnInit {
   
   isLoading = signal(true);
   isSubmitting = signal(false);
+  isAssisting = signal(false);
+  aiPrefill = signal<Record<string, unknown> | null>(null);
   
   selectedStepId = signal<string | null>(null);
 
@@ -140,11 +162,40 @@ export class TramiteDetallePage implements OnInit {
   clientModalLoading = signal(false);
   clientInfo = signal<Record<string, any> | null>(null);
 
+  // Document Modal State
+  modalDocumentoAbierto = signal(false);
+  campoActivoParaDocumento = signal<any>(null);
+  metadataDocumentoActivo = signal<any>(null);
+
   pasosOrdenados = computed(() => {
     const p = this.plantilla();
     const t = this.tramite();
     if (!p || !p.pasos) return [];
-    return this.buildTraversalOrder(p.pasos, t);
+    const ordered = this.buildTraversalOrder(p.pasos, t);
+    
+    const user = this.authService.getUser();
+    const isCliente = user?.rol === 'CLIENTE' || !user?.departamentoId;
+    if (isCliente) {
+      return ordered.filter(paso => !paso.departamentoId);
+    }
+    return ordered;
+  });
+
+  activeStepIdsForUser = computed(() => {
+    const t = this.tramite();
+    const user = this.authService.getUser();
+    const p = this.plantilla();
+    if (!t || !user || !p) return [];
+    
+    const activeIds = t.pasosActualesIds || [];
+    const isCliente = user.rol === 'CLIENTE' || !user.departamentoId;
+    if (isCliente) {
+      return activeIds.filter(id => {
+        const step = p.pasos.find(x => x.id === id);
+        return step && !step.departamentoId;
+      });
+    }
+    return activeIds;
   });
 
   selectedStep = computed(() => {
@@ -167,13 +218,31 @@ export class TramiteDetallePage implements OnInit {
     this.tramiteService.getById(id).subscribe({
       next: (t) => {
         this.tramite.set(t);
-        // Set selected to pasoActual initially
-        if (t.pasoActualId) {
-           this.selectedStepId.set(t.pasoActualId);
-        }
         
         this.workflowService.getWorkflowById(t.plantillaId).subscribe({
-          next: (p) => { this.plantilla.set(p); this.isLoading.set(false); },
+          next: (p) => { 
+            this.plantilla.set(p); 
+            this.isLoading.set(false); 
+            
+            // Set selected step intelligently
+            if (t.pasosActualesIds && t.pasosActualesIds.length > 0) {
+              const user = this.authService.getUser();
+              const isCliente = user?.rol === 'CLIENTE' || !user?.departamentoId;
+              if (isCliente) {
+                const clientActiveStep = t.pasosActualesIds.find(stepId => {
+                  const step = p.pasos.find(x => x.id === stepId);
+                  return step && !step.departamentoId;
+                });
+                this.selectedStepId.set(clientActiveStep || null);
+              } else {
+                const deptoActiveStep = t.pasosActualesIds.find(stepId => {
+                  const step = p.pasos.find(x => x.id === stepId);
+                  return step && step.departamentoId === user?.departamentoId;
+                });
+                this.selectedStepId.set(deptoActiveStep || t.pasosActualesIds[0]);
+              }
+            }
+          },
           error: () => { this.toast.error('Error cargando la plantilla.'); this.isLoading.set(false); }
         });
       },
@@ -183,6 +252,7 @@ export class TramiteDetallePage implements OnInit {
 
   selectStep(pasoId: string) {
     this.selectedStepId.set(pasoId);
+    this.aiPrefill.set(null);
   }
 
   isSelectedStepCompleted(): boolean {
@@ -206,9 +276,11 @@ export class TramiteDetallePage implements OnInit {
     
     if (!user || !paso || !t) return false;
     if (this.isSelectedStepCompleted()) return false;
-    if (paso.id !== t.pasoActualId) return false; // Only respond to active steps
+    if (!t.pasosActualesIds || !t.pasosActualesIds.includes(paso.id)) return false; // Only respond to active steps
     
-    if (!paso.departamentoId) return false; // Cliente step
+    if (!paso.departamentoId) {
+      return user.id === t.clienteId;
+    }
     if (!user.departamentoId) return false; // Not a worker
     return user.departamentoId === paso.departamentoId;
   }
@@ -249,9 +321,23 @@ export class TramiteDetallePage implements OnInit {
     }).subscribe({
       next: (updated) => {
         this.tramite.set(updated);
-        // move selected step ahead
-        if (updated.pasoActualId) this.selectedStepId.set(updated.pasoActualId);
+         // move selected step ahead
+         if (updated.pasosActualesIds && updated.pasosActualesIds.length > 0) {
+           const user = this.authService.getUser();
+           const isCliente = user?.rol === 'CLIENTE' || !user?.departamentoId;
+           const myActiveStep = updated.pasosActualesIds.find(id => {
+             const p = this.plantilla()?.pasos.find(x => x.id === id);
+             if (!p) return false;
+             if (isCliente) {
+               return !p.departamentoId;
+             } else {
+               return p.departamentoId === user?.departamentoId;
+             }
+           });
+           this.selectedStepId.set(myActiveStep || (isCliente ? null : updated.pasosActualesIds[0]));
+         }
         else this.selectedStepId.set(null); // finalizado
+        this.aiPrefill.set(null);
 
         this.isSubmitting.set(false);
         if (updated.estadoGlobal === 'FINALIZADO') {
@@ -278,8 +364,22 @@ export class TramiteDetallePage implements OnInit {
     }).subscribe({
       next: (updated) => {
         this.tramite.set(updated);
-        if (updated.pasoActualId) this.selectedStepId.set(updated.pasoActualId);
+         if (updated.pasosActualesIds && updated.pasosActualesIds.length > 0) {
+           const user = this.authService.getUser();
+           const isCliente = user?.rol === 'CLIENTE' || !user?.departamentoId;
+           const myActiveStep = updated.pasosActualesIds.find(id => {
+             const p = this.plantilla()?.pasos.find(x => x.id === id);
+             if (!p) return false;
+             if (isCliente) {
+               return !p.departamentoId;
+             } else {
+               return p.departamentoId === user?.departamentoId;
+             }
+           });
+           this.selectedStepId.set(myActiveStep || (isCliente ? null : updated.pasosActualesIds[0]));
+         }
         else this.selectedStepId.set(null); // finalizado
+        this.aiPrefill.set(null);
 
         this.isSubmitting.set(false);
         this.toast.success(`Decisión "${opcion}" tomada.`);
@@ -298,6 +398,55 @@ export class TramiteDetallePage implements OnInit {
     } catch { return dateStr; }
   }
 
+  asistirFormulario(event: { modo: 'chat' | 'voz'; mensaje: string }) {
+    const tramite = this.tramite();
+    const paso = this.selectedStep();
+    if (!tramite || !paso) {
+      return;
+    }
+
+    if (event.mensaje === 'VOICE_UNSUPPORTED') {
+      this.toast.error('Tu navegador no soporta reconocimiento de voz para esta función.');
+      return;
+    }
+
+    if (event.mensaje.startsWith('VOICE_ERROR:')) {
+      const code = event.mensaje.replace('VOICE_ERROR:', '');
+      this.toast.error(`Error de voz (${code}). Revisa permisos de micrófono y vuelve a intentar.`);
+      return;
+    }
+
+    this.isAssisting.set(true);
+    this.tramiteService
+      .asistirFormulario(tramite.id, {
+        pasoId: paso.id,
+        modo: event.modo,
+        mensaje: event.mensaje
+      })
+      .subscribe({
+        next: (response: AsistenteFormularioResponse) => {
+          this.aiPrefill.set(response.sugerencia ?? {});
+          this.isAssisting.set(false);
+
+          if (response.observacion) {
+            this.toast.success(response.observacion);
+          } else if (!response.sugerencia || Object.keys(response.sugerencia).length === 0) {
+            this.toast.error('IA no pudo inferir campos con ese mensaje. Intenta con más detalle.');
+          } else {
+            this.toast.success('Formulario autocompletado con sugerencias de IA.');
+          }
+        },
+        error: (err: unknown) => {
+          this.isAssisting.set(false);
+          const msg =
+            typeof err === 'object' && err !== null && 'error' in err
+              ? (err as { error?: { error?: string } }).error?.error
+              : null;
+          this.toast.error(msg || 'No se pudo obtener sugerencias de IA para este paso.');
+        }
+      });
+  }
+
   private buildTraversalOrder(pasos: PasoGenerado[], tramite: TramiteDTO | null): PasoGenerado[] {
     if (!pasos || pasos.length === 0) return [];
     const pasosMap = new Map<string, PasoGenerado>();
@@ -305,12 +454,16 @@ export class TramiteDetallePage implements OnInit {
     
     const result: PasoGenerado[] = [];
     const visited = new Set<string>();
-    let currentId: string | null | undefined = pasos[0]?.id;
+    const queue: string[] = [pasos[0].id];
     
-    while (currentId && !visited.has(currentId)) {
-      visited.add(currentId);
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      if (visited.has(currentId)) continue;
+      
       const paso = pasosMap.get(currentId);
-      if (!paso) break;
+      if (!paso) continue;
+      
+      visited.add(currentId);
       result.push(paso);
       
       const sig = paso.siguientes;
@@ -319,35 +472,91 @@ export class TramiteDetallePage implements OnInit {
       if (respuestas[currentId]) {
         const resp: Record<string, any> = respuestas[currentId];
         if (paso.tipo === 'DECISION' && resp['decision']) {
-          currentId = sig?.[resp['decision'] as string] ?? null;
-        } else {
-          currentId = this.getNextFromSiguientes(sig);
+          const nextId = sig?.[resp['decision'] as string];
+          if (nextId) queue.push(nextId);
+        } else if (sig) {
+          Object.values(sig).forEach(nextId => {
+            if (nextId) queue.push(nextId);
+          });
         }
-        continue;
-      }
-      
-      if (currentId === tramite?.pasoActualId || !tramite) {
-        let previewId = this.getNextFromSiguientes(sig);
-        while (previewId && !visited.has(previewId)) {
-          visited.add(previewId);
-          const previewPaso = pasosMap.get(previewId);
-          if (!previewPaso) break;
-          result.push(previewPaso);
-          previewId = this.getNextFromSiguientes(previewPaso.siguientes);
+      } else if (tramite?.pasosActualesIds && tramite.pasosActualesIds.includes(currentId)) {
+        if (sig) {
+          Object.values(sig).forEach(nextId => {
+            if (nextId) queue.push(nextId);
+          });
         }
-        break;
+      } else {
+        if (sig) {
+          Object.values(sig).forEach(nextId => {
+            if (nextId) queue.push(nextId);
+          });
+        }
       }
-      break;
     }
     
-    if (result.length === 0) return [...pasos];
+    if (tramite?.pasosActualesIds) {
+      tramite.pasosActualesIds.forEach(id => {
+        if (!visited.has(id)) {
+          const paso = pasosMap.get(id);
+          if (paso) {
+            result.push(paso);
+            visited.add(id);
+          }
+        }
+      });
+    }
+
+    result.sort((a, b) => {
+      const idxA = pasos.findIndex(x => x.id === a.id);
+      const idxB = pasos.findIndex(x => x.id === b.id);
+      return idxA - idxB;
+    });
+    
     return result;
   }
 
-  private getNextFromSiguientes(sig: Record<string, string> | null | undefined): string | null {
-    if (!sig) return null;
-    if (sig['default']) return sig['default'];
-    const vals = Object.values(sig);
-    return vals.length > 0 ? vals[0] : null;
+  getRolUsuarioActual(): string {
+    const user = this.authService.getUser();
+    return user ? user.rol : '';
+  }
+
+  getDepartamentoUsuarioActual(): string {
+    const user = this.authService.getUser();
+    return user && user.departamentoId ? user.departamentoId : '';
+  }
+
+  manejarAbrirDocumento(event: {key: string, type: string, format: string, permisos: any}) {
+    const t = this.tramite();
+    if (!t) return;
+    this.isSubmitting.set(true);
+    
+    this.tramiteService.inicializarDocumento(t.id, event.key, event.format, event.permisos).subscribe({
+      next: (metadata) => {
+        this.isSubmitting.set(false);
+        this.campoActivoParaDocumento.set(event);
+        this.metadataDocumentoActivo.set(metadata);
+        this.modalDocumentoAbierto.set(true);
+      },
+      error: (err) => {
+        this.isSubmitting.set(false);
+        this.toast.error(err?.error?.error || 'Error inicializando el documento.');
+      }
+    });
+  }
+
+  documentoGuardado(metadata: any) {
+    this.toast.success('Documento guardado exitosamente en S3.');
+    // Actualizamos silenciosamente el trámite actual en memoria para que el formulario sepa que el documento existe
+    const t = this.tramite();
+    if (t) {
+      const idx = t.documentos?.findIndex((d: any) => d.archivoId === metadata.archivoId);
+      if (idx !== undefined && idx >= 0 && t.documentos) {
+        t.documentos[idx] = metadata;
+      } else {
+        if (!t.documentos) t.documentos = [];
+        t.documentos.push(metadata);
+      }
+      this.tramite.set({...t});
+    }
   }
 }

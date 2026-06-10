@@ -12,7 +12,7 @@ import { DialogService } from '../../../../shared/dialog/dialog.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div 
-      class="w-full h-full relative overflow-hidden bg-surface-950" 
+      class="w-full h-full relative overflow-hidden bg-surface-950 touch-none lg:touch-auto" 
       #paperContainer
       (dragover)="onDragOver($event)"
       (drop)="onDrop($event)"
@@ -62,35 +62,60 @@ export class JointjsCanvasComponent implements AfterViewInit {
       
       if (sourceIndex >= 0) {
          const p = pasos[sourceIndex];
-         if (p.tipo === 'DECISION') {
+         if (p.tipo === 'DECISION' || p.tipo === 'FORK') {
              this.dialogService.prompt(
-               'Condición de Conexión', 
-               'Ingrese la condición para este camino (ej: Aprobado, Rechazado):'
+               'Nombre del Camino', 
+               'Ingrese el nombre de esta ruta (ej: Aprobado, Rechazado, Disponible):'
              ).subscribe(condition => {
                  if (!condition) {
-                     this.workflowState.setPasos([...this.workflowState.pasos()]); // repintar para borrar flecha suelta
+                     this.workflowState.setPasos([...this.workflowState.pasos()]);
                      return;
                  }
                  this.enlazar(pasos, sourceIndex, targetId, condition);
              });
          } else {
-             // Es Actividad linear
+             // For ACTIVIDAD or JOIN, we generally only allow one outgoing edge (without labels)
              this.enlazar(pasos, sourceIndex, targetId, 'default');
          }
       }
-    }, (sourceId, targetId) => {
-      // Borrar enlace
+    }, (sourceId, targetId, currentLabel) => {
+      // Double-click en flecha: editar label o eliminar
       const pasos = [...this.workflowState.pasos()];
       const sourceIndex = pasos.findIndex(p => p.id === sourceId);
-      if (sourceIndex >= 0) {
-         const p = pasos[sourceIndex];
-         const s = { ...p.siguientes };
-         const keyToRemove = Object.keys(s).find(k => s[k] === targetId);
-         if (keyToRemove) {
-             delete s[keyToRemove];
-             pasos[sourceIndex] = { ...p, siguientes: s };
-             this.workflowState.setPasos(pasos);
-         }
+      if (sourceIndex < 0) return;
+
+      const p = pasos[sourceIndex];
+      const isDecisionOrFork = p.tipo === 'DECISION' || p.tipo === 'FORK';
+      const displayLabel = currentLabel && currentLabel !== 'default' ? currentLabel : 'default';
+
+      if (isDecisionOrFork || (currentLabel && currentLabel !== 'default')) {
+        // Para DECISION o rutas con label: ofrecer editar o eliminar
+        this.dialogService.prompt(
+          'Editar Conexión',
+          `Cambie el nombre de esta ruta (actual: "${displayLabel}").\nDeje vacío y presione Guardar para ELIMINAR esta conexión.`,
+          currentLabel || ''
+        ).subscribe(newLabel => {
+          if (newLabel === null) return; // Canceló
+          if (!newLabel.trim()) {
+            // Eliminar la conexión
+            this.eliminarEnlace(pasos, sourceIndex, targetId);
+          } else {
+            // Renombrar la ruta
+            this.renombrarEnlace(pasos, sourceIndex, targetId, currentLabel || 'default', newLabel.trim());
+          }
+        });
+      } else {
+        // Para ACTIVIDAD con label default: solo confirmar eliminación
+        this.dialogService.confirm(
+          'Eliminar Conexión',
+          '¿Desea eliminar esta conexión?',
+          true,
+          'Eliminar'
+        ).subscribe(confirmed => {
+          if (confirmed) {
+            this.eliminarEnlace(pasos, sourceIndex, targetId);
+          }
+        });
       }
     });
     
@@ -104,6 +129,29 @@ export class JointjsCanvasComponent implements AfterViewInit {
       const p = pasos[sourceIndex];
       const s = { ...p.siguientes };
       s[label] = targetId;
+      pasos[sourceIndex] = { ...p, siguientes: s };
+      this.workflowState.setPasos(pasos);
+  }
+
+  private eliminarEnlace(pasos: any[], sourceIndex: number, targetId: string) {
+      const p = pasos[sourceIndex];
+      const s = { ...p.siguientes };
+      const keyToRemove = Object.keys(s).find(k => s[k] === targetId);
+      if (keyToRemove) {
+          delete s[keyToRemove];
+          pasos[sourceIndex] = { ...p, siguientes: s };
+          this.workflowState.setPasos(pasos);
+      }
+  }
+
+  private renombrarEnlace(pasos: any[], sourceIndex: number, targetId: string, oldLabel: string, newLabel: string) {
+      const p = pasos[sourceIndex];
+      const s = { ...p.siguientes };
+      // Remove old key, add new key pointing to same target
+      if (s[oldLabel] === targetId) {
+          delete s[oldLabel];
+      }
+      s[newLabel] = targetId;
       pasos[sourceIndex] = { ...p, siguientes: s };
       this.workflowState.setPasos(pasos);
   }
@@ -135,7 +183,7 @@ export class JointjsCanvasComponent implements AfterViewInit {
     let targetDeptoId = carrilesVivos[laneIndex];
     if (!targetDeptoId) {
       // Si cayó fuera del rango existente, y el payload no es una actividad (ej. es un ID tirado de la paleta), arranca ese carril.
-      targetDeptoId = (type !== 'Actividad' && type !== 'Notificación' && type !== 'Inicio' && type !== 'Fin') ? type : 'Cliente';
+      targetDeptoId = (type !== 'Actividad' && type !== 'Decisión' && type !== 'Fork' && type !== 'Join' && type !== 'Notificación' && type !== 'Inicio' && type !== 'Fin') ? type : 'Cliente';
     }
 
     // Ignoramos Inicio o Fin porque ya hay nodos nativos UML auto-inyectados
@@ -147,15 +195,28 @@ export class JointjsCanvasComponent implements AfterViewInit {
     // Insertar un nuevo paso real a la tienda, permitiendo así su edición posterior
     const copy = [...pasosAnteriores];
     const newId = `paso_${Date.now()}`;
-    const isDecision = (type === 'Decisión');
-    const newStepName = isDecision ? `Decisión` : `Nueva Actividad`;
+    let nodeTipo: 'ACTIVIDAD' | 'DECISION' | 'FORK' | 'JOIN' = 'ACTIVIDAD';
+    let newStepName = 'Nueva Actividad';
+    
+    if (type === 'Decisión') {
+      nodeTipo = 'DECISION';
+      newStepName = 'Decisión';
+    } else if (type === 'Actividad') {
+      nodeTipo = 'ACTIVIDAD';
+    } else if (type === 'Fork') {
+      nodeTipo = 'FORK';
+      newStepName = 'Fork';
+    } else if (type === 'Join') {
+      nodeTipo = 'JOIN';
+      newStepName = 'Join';
+    }
 
     copy.push({
       id: newId,
-      tipo: isDecision ? 'DECISION' : 'ACTIVIDAD',
+      tipo: nodeTipo,
       departamentoId: targetDeptoId === 'Cliente' ? null : targetDeptoId,
       nombrePaso: newStepName,
-      formularioJson: isDecision ? null : {},
+      formularioJson: nodeTipo === 'ACTIVIDAD' ? {} : null,
       siguientes: {}
     });
 

@@ -29,18 +29,26 @@ import { AuthService } from '../../services/auth.service';
   template: `
     <div class="h-screen w-full bg-surface-950 flex flex-col font-sans overflow-hidden">
       <!-- Top header -->
-      <header class="h-14 border-b border-surface-800 bg-surface-900/80 backdrop-blur-sm flex items-center justify-between px-4 shrink-0 z-20">
-        <div class="flex items-center gap-4">
-          <a routerLink="/workflows" class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+      <header class="min-h-[56px] border-b border-surface-800 bg-surface-900/80 backdrop-blur-sm flex items-center justify-between px-3 sm:px-4 shrink-0 z-20 gap-2 flex-wrap py-2">
+        <div class="flex items-center gap-2 sm:gap-4 min-w-0">
+          <!-- Mobile palette toggle -->
+          <button 
+            class="lg:hidden p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-surface-700 transition-colors"
+            (click)="showPalette.set(!showPalette())"
+            [title]="showPalette() ? 'Ocultar paleta' : 'Mostrar paleta'"
+          >
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <a routerLink="/workflows" class="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors shrink-0">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
-            <span class="font-medium text-sm">Workflows</span>
+            <span class="font-medium text-sm hidden sm:inline">Workflows</span>
           </a>
-          <div class="h-5 w-px bg-surface-700"></div>
-          <h1 class="text-sm font-semibold text-white tracking-tight">
-            {{ workflowState.isEditMode() ? 'Editando: ' + workflowState.workflowNombre() : 'Crear Nuevo Workflow' }}
+          <div class="h-5 w-px bg-surface-700 hidden sm:block"></div>
+          <h1 class="text-xs sm:text-sm font-semibold text-white tracking-tight truncate max-w-[150px] sm:max-w-none">
+            {{ workflowState.isEditMode() ? 'Editando: ' + workflowState.workflowNombre() : 'Nuevo Workflow' }}
           </h1>
           @if (workflowState.isEditMode()) {
-            <span class="text-[10px] px-2 py-0.5 rounded-full font-medium border"
+            <span class="text-[10px] px-2 py-0.5 rounded-full font-medium border shrink-0"
               [class.bg-emerald-500/10]="workflowState.isActive()"
               [class.text-emerald-400]="workflowState.isActive()"
               [class.border-emerald-500/20]="workflowState.isActive()"
@@ -53,31 +61,50 @@ import { AuthService } from '../../services/auth.service';
           }
         </div>
         
-        <div class="flex items-center gap-3">
-          <!-- Connected users indicator -->
+        <div class="flex items-center gap-2 sm:gap-3 shrink-0">
           @if (connectedUsers().length > 0) {
-            <div class="flex items-center gap-1.5 px-3 py-1 bg-surface-800 border border-surface-700 rounded-full">
+            <div class="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-surface-800 border border-surface-700 rounded-full">
               <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
               <span class="text-[10px] text-gray-300">{{ connectedUsers().length + 1 }} editores</span>
             </div>
           }
           @if (!workflowState.isChatExpanded()) {
             <app-button variant="outline" size="sm" (click)="workflowState.toggleChat()">
-              Abrir Asistente IA
+              <span class="hidden sm:inline">Abrir Asistente IA</span>
+              <span class="sm:hidden">IA</span>
             </app-button>
           }
           <app-button variant="primary" size="sm" (click)="guardarWorkflow()" [disabled]="isSaving()">
-            {{ isSaving() ? 'Guardando...' : (workflowState.isEditMode() ? 'Actualizar Workflow' : 'Guardar Workflow') }}
+            <span class="hidden sm:inline">{{ isSaving() ? 'Guardando...' : (workflowState.isEditMode() ? 'Actualizar' : 'Guardar') }}</span>
+            <span class="sm:hidden">{{ isSaving() ? '...' : 'Guardar' }}</span>
           </app-button>
         </div>
       </header>
 
       <!-- 3 Columns Layout -->
       <main class="flex-1 flex overflow-hidden relative">
-        <app-palette-sidebar></app-palette-sidebar>
+        <!-- Palette: fixed on desktop, overlay on mobile -->
+        <div 
+          class="shrink-0 z-30"
+          [ngClass]="{
+            'hidden lg:block': !showPalette(),
+            'absolute inset-y-0 left-0 shadow-2xl shadow-black/50': showPalette()
+          }"
+        >
+          <app-palette-sidebar></app-palette-sidebar>
+        </div>
+        <!-- Backdrop for mobile palette -->
+        @if (showPalette()) {
+          <div class="lg:hidden absolute inset-0 bg-black/40 z-20 backdrop-blur-sm transition-opacity" (click)="showPalette.set(false)"></div>
+        }
         <div class="flex-1 overflow-hidden relative">
           <app-jointjs-canvas></app-jointjs-canvas>
         </div>
+        
+        <!-- Backdrop for AI sidebar on mobile -->
+        @if (workflowState.isChatExpanded()) {
+          <div class="md:hidden absolute inset-0 bg-black/40 z-20 backdrop-blur-sm transition-opacity" (click)="workflowState.toggleChat()"></div>
+        }
         <app-ai-chat-sidebar></app-ai-chat-sidebar>
       </main>
     </div>
@@ -95,15 +122,16 @@ export class WorkflowDesignerPage implements OnInit, OnDestroy {
   private readonly authService = inject(AuthService);
 
   isSaving = signal(false);
+  showPalette = signal(false);
   connectedUsers = signal<string[]>([]);
   
   private wsSub?: Subscription;
   private joinSub?: Subscription;
 
   ngOnInit() {
-    // Cargar departamentos
+    // Cargar departamentos activos para el editor
     this.deptoService.getDepartamentos().subscribe((deptos) => {
-      this.workflowState.setDepartamentos(deptos);
+      this.workflowState.setDepartamentos(deptos.filter(d => d.isActive));
     });
 
     // Detectar si estamos editando un workflow existente

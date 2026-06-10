@@ -11,7 +11,12 @@
     {
       "name": "movil_workflow",
       "path": "../movil_workflow"
+    },
+    {
+      "path": "../IA"
     }
   ],
-  "settings": {}
+  "settings": {
+    "java.compile.nullAnalysis.mode": "automatic"
+  }
 }

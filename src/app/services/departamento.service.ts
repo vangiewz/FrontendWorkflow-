@@ -6,6 +6,7 @@ import { environment } from '../environments/environment';
 export interface Departamento {
   id: string;
   nombre: string;
+  isActive: boolean;
 }
 
 export interface CreateDepartamentoRequest {
@@ -33,6 +34,10 @@ export class DepartamentoService {
 
   updateDepartamento(id: string, request: { nombre: string }): Observable<Departamento> {
     return this.http.patch<Departamento>(`${this.apiUrl}/departamentos/${id}`, request);
+  }
+
+  toggleActive(id: string): Observable<Departamento> {
+    return this.http.patch<Departamento>(`${this.apiUrl}/departamentos/${id}/toggle-active`, {});
   }
 
   deleteDepartamento(id: string): Observable<{ message: string }> {
