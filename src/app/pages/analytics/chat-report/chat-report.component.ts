@@ -28,7 +28,7 @@ export class ChatReportComponent implements OnInit, OnDestroy {
   recognition: any;
   mobileSidebarOpen = signal(false);
 
-  private apiUrl = environment.aiUrl + '/reports/chat';
+  private apiUrl = environment.aiUrl + '/workflows/ai/reports/chat';
 
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
 
