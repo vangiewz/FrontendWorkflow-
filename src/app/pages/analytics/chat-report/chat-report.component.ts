@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { SidebarComponent } from '../../../shared/sidebar/sidebar';
+import { environment } from '../../../environments/environment';
 
 interface ChatMessage {
   role: 'user' | 'ia';
@@ -27,7 +28,7 @@ export class ChatReportComponent implements OnInit, OnDestroy {
   recognition: any;
   mobileSidebarOpen = signal(false);
 
-  private apiUrl = 'http://localhost:8000/api/workflows/ai/reports/chat';
+  private apiUrl = environment.aiUrl + '/reports/chat';
 
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
 
