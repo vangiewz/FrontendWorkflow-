@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://api-backend-5axms.azurewebsites.net/api',
+  apiUrl: 'https://workflow-backend-rekte.azurewebsites.net/api',
 };
