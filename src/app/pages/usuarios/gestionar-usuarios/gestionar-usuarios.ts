@@ -177,13 +177,16 @@ export class GestionarUsuariosPage implements OnInit {
 
   changeRol(id: string, newRol: string) {
     this.usuarioService.updateRol(id, newRol).subscribe({
-      next: (res) => {
-        this.usuarios.update(us => us.map(u => u.id === id ? res : u));
-        // Si el nuevo rol es CLIENTE, el backend ya limpia el departamento → reflejarlo localmente
-        if (newRol.toUpperCase() === 'CLIENTE') {
-          this.usuarios.update(us => us.map(u => u.id === id ? { ...u, departamentoId: null as any } : u));
-        }
-        this.mostrarExito('Rol actualizado correctamente');
+      next: (res: any) => {
+        this.usuarios.update(us => us.map(u => {
+          if (u.id === id) {
+            // Si es respuesta offline (encolada), actualizamos optimistamente
+            if (res?.offline) return { ...u, rol: newRol, departamentoId: newRol.toUpperCase() === 'CLIENTE' ? null : u.departamentoId };
+            return res;
+          }
+          return u;
+        }));
+        this.mostrarExito(res?.offline ? 'Rol encolado para guardar' : 'Rol actualizado correctamente');
       },
       error: (e) => this.mostrarError(e.error?.error || 'Error al cambiar rol')
     });
@@ -191,9 +194,15 @@ export class GestionarUsuariosPage implements OnInit {
 
   changeDepto(id: string, newDeptoId: string | null) {
     this.usuarioService.assignDepartamento(id, newDeptoId ?? '').subscribe({
-      next: (res) => {
-        this.usuarios.update(us => us.map(u => u.id === id ? res : u));
-        this.mostrarExito('Departamento asignado correctamente');
+      next: (res: any) => {
+        this.usuarios.update(us => us.map(u => {
+          if (u.id === id) {
+            if (res?.offline) return { ...u, departamentoId: newDeptoId as any };
+            return res;
+          }
+          return u;
+        }));
+        this.mostrarExito(res?.offline ? 'Departamento encolado' : 'Departamento asignado correctamente');
       },
       error: (e) => this.mostrarError(e.error?.error || 'Error asignando departamento')
     });
@@ -203,9 +212,15 @@ export class GestionarUsuariosPage implements OnInit {
     this.dialogService.prompt('Cambiar Teléfono', 'Ingrese el nuevo teléfono. Déjelo vacío para eliminar.', currently || '').subscribe(p => {
       if (p === null) return;
       this.usuarioService.updateTelefono(id, p).subscribe({
-        next: (res) => {
-          this.usuarios.update(us => us.map(u => u.id === id ? res : u));
-          this.mostrarExito('Teléfono actualizado correctamente');
+        next: (res: any) => {
+          this.usuarios.update(us => us.map(u => {
+            if (u.id === id) {
+              if (res?.offline) return { ...u, telefono: p };
+              return res;
+            }
+            return u;
+          }));
+          this.mostrarExito(res?.offline ? 'Teléfono encolado' : 'Teléfono actualizado correctamente');
         },
         error: (e) => this.mostrarError(e.error?.error || 'Error actualizando teléfono')
       });

@@ -179,6 +179,28 @@ interface WorkflowGenerationResponse {
               <app-button variant="primary" size="sm" class="w-full mt-4" (click)="guardarPropiedades()">
                 Guardar Propiedades
               </app-button>
+            } @else if (paso.tipo === 'FORK' || paso.tipo === 'JOIN') {
+              <div class="mt-4 p-4 bg-sky-500/10 border border-sky-500/20 rounded-lg">
+                <p class="text-xs font-semibold text-sky-500 mb-2">Nodo {{ paso.tipo }}</p>
+                <p class="text-[10px] text-gray-400 mb-3">Este nodo gestiona flujos paralelos y no requiere formulario.</p>
+                
+                @if (paso.tipo === 'FORK' && paso.siguientes && getObjectKeys(paso.siguientes).length > 0) {
+                  <div class="space-y-2 mt-3">
+                    <p class="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Rutas configuradas</p>
+                    @for (key of getObjectKeys(paso.siguientes); track key) {
+                      <div class="flex items-center gap-2 bg-surface-800/50 rounded-lg px-3 py-2">
+                        <div class="w-2 h-2 rounded-full bg-sky-500 shrink-0"></div>
+                        <span class="text-xs text-sky-300 font-medium flex-1 truncate">{{ key }}</span>
+                        <svg class="w-3 h-3 text-gray-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                        <span class="text-[10px] text-gray-400 truncate">{{ paso.siguientes[key] }}</span>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+              <app-button variant="primary" size="sm" class="w-full mt-4" (click)="guardarPropiedades()">
+                Guardar Propiedades
+              </app-button>
             } @else if (paso.nombrePaso !== 'Notificación recibida') {
               <div class="mt-2 py-4 border-t border-surface-800">
                  <h3 class="text-xs font-semibold text-emerald-400 mb-1">Formulario del Departamento</h3>
@@ -386,7 +408,7 @@ export class AiChatSidebarComponent implements OnDestroy {
       const pasos = [...this.workflowState.pasos()];
       const index = pasos.findIndex(p => p.id === (selected as any).id);
       if (index !== -1) {
-        const isDesc = selected.tipo === 'DECISION';
+        const isDesc = selected.tipo === 'DECISION' || selected.tipo === 'FORK' || selected.tipo === 'JOIN';
         pasos[index] = { ...pasos[index], nombrePaso: updatedNombre, departamentoId: updatedDepto, formularioJson: isDesc ? null : updatedForm };
         // Trigger visual engine rebuild by updating state
         this.workflowState.setPasos(pasos);

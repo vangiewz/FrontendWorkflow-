@@ -18,7 +18,10 @@ export interface TramiteDTO {
   clienteId: string | null;
   clienteEmail?: string | null;
   estadoGlobal: 'PENDIENTE' | 'EN_PROGRESO' | 'FINALIZADO' | 'ESPERANDO_PAGO';
-  pasoActualId: string | null;
+  prioridad?: 'ALTA' | 'MEDIA' | 'BAJA' | string;
+  riesgoDemora?: boolean;
+  esAnomalo?: boolean;
+  pasosActualesIds: string[];
   datosFormularioCliente: Record<string, any>;
   respuestas: Record<string, Record<string, any>>;
   historialTiempos: RegistroTiempo[];
@@ -26,6 +29,7 @@ export interface TramiteDTO {
   fechaFinalizacion: string | null;
   paymentId?: string | null;
   invoiceUrl?: string | null;
+  documentos?: any[];
 }
 
 export interface ResponderPasoRequest {
@@ -113,5 +117,13 @@ export class TramiteService {
       `${this.apiUrl}/tramites/${tramiteId}/asistir-formulario`,
       request
     );
+  }
+
+  inicializarDocumento(tramiteId: string, campoKey: string, formato: string, permisos: any): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/tramites/${tramiteId}/documentos/inicializar`, {
+      campoKey,
+      formato,
+      permisos
+    });
   }
 }

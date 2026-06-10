@@ -37,22 +37,12 @@
     {
       "name": "api-data",
       "urls": [
-        "**/api/departamentos",
-        "**/api/departamentos/**",
-        "**/api/usuarios",
-        "**/api/usuarios/**",
-        "**/api/workflows",
-        "**/api/workflows/**",
-        "**/api/tramites",
-        "**/api/tramites/**",
-        "**/api/bitacora",
-        "**/api/bitacora/**",
-        "**/api/analytics/**"
+        "**/api/**"
       ],
       "cacheConfig": {
         "strategy": "freshness",
-        "maxSize": 150,
-        "maxAge": "1d",
+        "maxSize": 500,
+        "maxAge": "3d",
         "timeout": "5s"
       }
     }

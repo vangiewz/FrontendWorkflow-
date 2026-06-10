@@ -79,9 +79,33 @@ export const routes: Routes = [
           description: 'El microservicio de IA analiza tiempos históricos y detecta los departamentos con mayor retraso.',
           icon: '📊',
           route: '/analytics'
+        },
+        {
+          title: 'Generador de Reportes con IA',
+          description: 'Chat interactivo con IA para extraer, filtrar y generar archivos físicos (Excel, PDF, Word) de los trámites del sistema.',
+          icon: '🤖',
+          route: '/reportes-ia'
+        },
+        {
+          title: 'Simulador de Enrutamiento Predictivo',
+          description: 'Prueba la red neuronal que asigna prioridad, tiempo estimado y detecta anomalías en nuevos trámites.',
+          icon: '🛣️',
+          route: '/routing-predictivo'
+        },
+        {
+          title: 'Motor de Escalamiento SLA',
+          description: 'Fuerza la revisión y visualiza en tiempo real los trámites estancados que han sido escalados a prioridad ALTA.',
+          icon: '⏱️',
+          route: '/sla-dashboard'
         }
       ]
     }
+  },
+  {
+    path: 'sla-dashboard',
+    loadComponent: () =>
+      import('./pages/sla-dashboard/sla-dashboard.component').then((m) => m.SlaDashboardComponent),
+    canActivate: [authGuard, roleGuard(['ADMIN'])]
   },
 
   // ─── Paquete 3: Operación y Gestión de Trámites (ADMIN y FUNCIONARIO) ───
@@ -99,6 +123,33 @@ export const routes: Routes = [
           description: 'Accede a la bandeja de tareas, completa formularios dinámicos y avanza los trámites en curso.',
           icon: '⚙️',
           route: '/tramites'
+        }
+      ]
+    }
+  },
+  
+  // ─── Paquete 5: Gestión Documental (ADMIN y FUNCIONARIO) ───
+  {
+    path: 'paquetes/gestion-documental',
+    loadComponent: () =>
+      import('./pages/paquete-hub/paquete-hub').then((m) => m.PaqueteHubPage),
+    canActivate: [authGuard, roleGuard(['ADMIN', 'FUNCIONARIO'])],
+    data: {
+      title: 'Módulo: Gestión Documental',
+      description: 'Accede y administra de forma segura todos los documentos asociados a los procesos de tu departamento.',
+      cards: [
+        {
+          title: 'Gestionar Documentos',
+          description: 'Explora los documentos pendientes e históricos con seguridad de Doble Candado.',
+          icon: '📁',
+          route: '/gestion-documental'
+        },
+        {
+          title: 'Auditoría Documental',
+          description: 'Registro inmutable de actividades y trazabilidad de documentos.',
+          icon: '🛡️',
+          route: '/gestion-documental/auditoria',
+          requiredRole: 'ADMIN'
         }
       ]
     }
@@ -177,6 +228,30 @@ export const routes: Routes = [
     path: 'analytics',
     loadComponent: () =>
       import('./pages/analytics/analytics').then((m) => m.AnalyticsPage),
+    canActivate: [authGuard, roleGuard(['ADMIN'])],
+  },
+  {
+    path: 'reportes-ia',
+    loadComponent: () =>
+      import('./pages/analytics/chat-report/chat-report.component').then((m) => m.ChatReportComponent),
+    canActivate: [authGuard, roleGuard(['ADMIN', 'FUNCIONARIO'])],
+  },
+  {
+    path: 'gestion-documental',
+    loadComponent: () =>
+      import('./pages/gestion-documental/gestion-documental-dashboard.component').then((m) => m.GestionDocumentalDashboardComponent),
+    canActivate: [authGuard, roleGuard(['ADMIN', 'FUNCIONARIO'])],
+  },
+  {
+    path: 'gestion-documental/auditoria',
+    loadComponent: () =>
+      import('./pages/gestion-documental/components/auditoria-documental/auditoria-documental.component').then((m) => m.AuditoriaDocumentalComponent),
+    canActivate: [authGuard, roleGuard(['ADMIN'])],
+  },
+  {
+    path: 'routing-predictivo',
+    loadComponent: () =>
+      import('./pages/routing-predictivo/routing-predictivo.component').then((m) => m.RoutingPredictivoComponent),
     canActivate: [authGuard, roleGuard(['ADMIN'])],
   },
 ];

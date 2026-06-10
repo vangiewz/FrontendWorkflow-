@@ -37,7 +37,7 @@ export interface WorkflowAiAssistRequest {
 
 export interface PasoGenerado {
   id: string;
-  tipo: 'ACTIVIDAD' | 'DECISION';
+  tipo: 'ACTIVIDAD' | 'DECISION' | 'FORK' | 'JOIN';
   departamentoId: string | null;
   nombrePaso: string;
   formularioJson: Record<string, unknown> | null;

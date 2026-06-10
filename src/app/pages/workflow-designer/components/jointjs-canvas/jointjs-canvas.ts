@@ -62,7 +62,7 @@ export class JointjsCanvasComponent implements AfterViewInit {
       
       if (sourceIndex >= 0) {
          const p = pasos[sourceIndex];
-         if (p.tipo === 'DECISION') {
+         if (p.tipo === 'DECISION' || p.tipo === 'FORK') {
              this.dialogService.prompt(
                'Nombre del Camino', 
                'Ingrese el nombre de esta ruta (ej: Aprobado, Rechazado, Disponible):'
@@ -74,6 +74,7 @@ export class JointjsCanvasComponent implements AfterViewInit {
                  this.enlazar(pasos, sourceIndex, targetId, condition);
              });
          } else {
+             // For ACTIVIDAD or JOIN, we generally only allow one outgoing edge (without labels)
              this.enlazar(pasos, sourceIndex, targetId, 'default');
          }
       }
@@ -84,10 +85,10 @@ export class JointjsCanvasComponent implements AfterViewInit {
       if (sourceIndex < 0) return;
 
       const p = pasos[sourceIndex];
-      const isDecision = p.tipo === 'DECISION';
+      const isDecisionOrFork = p.tipo === 'DECISION' || p.tipo === 'FORK';
       const displayLabel = currentLabel && currentLabel !== 'default' ? currentLabel : 'default';
 
-      if (isDecision || (currentLabel && currentLabel !== 'default')) {
+      if (isDecisionOrFork || (currentLabel && currentLabel !== 'default')) {
         // Para DECISION o rutas con label: ofrecer editar o eliminar
         this.dialogService.prompt(
           'Editar Conexión',
@@ -182,7 +183,7 @@ export class JointjsCanvasComponent implements AfterViewInit {
     let targetDeptoId = carrilesVivos[laneIndex];
     if (!targetDeptoId) {
       // Si cayó fuera del rango existente, y el payload no es una actividad (ej. es un ID tirado de la paleta), arranca ese carril.
-      targetDeptoId = (type !== 'Actividad' && type !== 'Notificación' && type !== 'Inicio' && type !== 'Fin') ? type : 'Cliente';
+      targetDeptoId = (type !== 'Actividad' && type !== 'Decisión' && type !== 'Fork' && type !== 'Join' && type !== 'Notificación' && type !== 'Inicio' && type !== 'Fin') ? type : 'Cliente';
     }
 
     // Ignoramos Inicio o Fin porque ya hay nodos nativos UML auto-inyectados
@@ -194,15 +195,28 @@ export class JointjsCanvasComponent implements AfterViewInit {
     // Insertar un nuevo paso real a la tienda, permitiendo así su edición posterior
     const copy = [...pasosAnteriores];
     const newId = `paso_${Date.now()}`;
-    const isDecision = (type === 'Decisión');
-    const newStepName = isDecision ? `Decisión` : `Nueva Actividad`;
+    let nodeTipo: 'ACTIVIDAD' | 'DECISION' | 'FORK' | 'JOIN' = 'ACTIVIDAD';
+    let newStepName = 'Nueva Actividad';
+    
+    if (type === 'Decisión') {
+      nodeTipo = 'DECISION';
+      newStepName = 'Decisión';
+    } else if (type === 'Actividad') {
+      nodeTipo = 'ACTIVIDAD';
+    } else if (type === 'Fork') {
+      nodeTipo = 'FORK';
+      newStepName = 'Fork';
+    } else if (type === 'Join') {
+      nodeTipo = 'JOIN';
+      newStepName = 'Join';
+    }
 
     copy.push({
       id: newId,
-      tipo: isDecision ? 'DECISION' : 'ACTIVIDAD',
+      tipo: nodeTipo,
       departamentoId: targetDeptoId === 'Cliente' ? null : targetDeptoId,
       nombrePaso: newStepName,
-      formularioJson: isDecision ? null : {},
+      formularioJson: nodeTipo === 'ACTIVIDAD' ? {} : null,
       siguientes: {}
     });
 

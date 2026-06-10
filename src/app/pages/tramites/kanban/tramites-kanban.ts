@@ -69,10 +69,34 @@ import { ToastService } from '../../../shared/toast/toast.service';
                 </div>
                 <div class="flex-1 space-y-3 overflow-y-auto pr-1 pb-4" style="max-height: calc(100vh - 180px)">
                   @for (t of pendientes(); track t.id) {
-                    <div (click)="irADetalle(t)" class="group glass rounded-xl p-4 cursor-pointer hover:border-amber-500/30 transition-all duration-200 border border-transparent">
+                    <div (click)="irADetalle(t)" class="group glass rounded-xl p-4 cursor-pointer transition-all duration-200 border"
+                         [ngClass]="{
+                            'border-rose-500 hover:border-rose-400': t.prioridad === 'ALTA',
+                            'border-amber-500 hover:border-amber-400': t.prioridad === 'MEDIA',
+                            'border-emerald-500 hover:border-emerald-400': t.prioridad === 'BAJA',
+                            'border-transparent hover:border-amber-500/30': !t.prioridad
+                         }">
                       <div class="flex items-start justify-between mb-2">
                         <h4 class="text-sm font-medium text-white group-hover:text-amber-300 transition-colors">{{ t.nombrePlantilla }}</h4>
-                        <span class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">Pendiente</span>
+                        <div class="flex items-center gap-1 flex-wrap justify-end">
+                          @if (t.prioridad) {
+                            <span class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border"
+                                  [ngClass]="{
+                                    'bg-rose-500/10 text-rose-400 border-rose-500/20': t.prioridad === 'ALTA',
+                                    'bg-amber-500/10 text-amber-400 border-amber-500/20': t.prioridad === 'MEDIA',
+                                    'bg-emerald-500/10 text-emerald-400 border-emerald-500/20': t.prioridad === 'BAJA'
+                                  }">
+                              {{ t.prioridad }}
+                            </span>
+                          }
+                          @if (t.riesgoDemora) {
+                            <span class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30" title="Riesgo de Demora">⚠️</span>
+                          }
+                          @if (t.esAnomalo) {
+                            <span class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30 shadow-[0_0_8px_rgba(249,115,22,0.5)]" title="Anomalía Detectada por IA">👽 Anómalo</span>
+                          }
+                          <span class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">Pendiente</span>
+                        </div>
                       </div>
                       <p class="text-[11px] text-gray-500 mb-3">Creado: {{ formatDate(t.fechaCreacion) }}</p>
                       <div class="flex items-center gap-2">
@@ -98,10 +122,34 @@ import { ToastService } from '../../../shared/toast/toast.service';
                 </div>
                 <div class="flex-1 space-y-3 overflow-y-auto pr-1 pb-4" style="max-height: calc(100vh - 180px)">
                   @for (t of enProceso(); track t.id) {
-                    <div (click)="irADetalle(t)" class="group glass rounded-xl p-4 cursor-pointer hover:border-blue-500/30 transition-all duration-200 border border-transparent">
+                    <div (click)="irADetalle(t)" class="group glass rounded-xl p-4 cursor-pointer transition-all duration-200 border"
+                         [ngClass]="{
+                            'border-rose-500 hover:border-rose-400': t.prioridad === 'ALTA',
+                            'border-amber-500 hover:border-amber-400': t.prioridad === 'MEDIA',
+                            'border-emerald-500 hover:border-emerald-400': t.prioridad === 'BAJA',
+                            'border-transparent hover:border-blue-500/30': !t.prioridad
+                         }">
                       <div class="flex items-start justify-between mb-2">
                         <h4 class="text-sm font-medium text-white group-hover:text-blue-300 transition-colors">{{ t.nombrePlantilla }}</h4>
-                        <span class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">En Proceso</span>
+                        <div class="flex items-center gap-1 flex-wrap justify-end">
+                          @if (t.prioridad) {
+                            <span class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border"
+                                  [ngClass]="{
+                                    'bg-rose-500/10 text-rose-400 border-rose-500/20': t.prioridad === 'ALTA',
+                                    'bg-amber-500/10 text-amber-400 border-amber-500/20': t.prioridad === 'MEDIA',
+                                    'bg-emerald-500/10 text-emerald-400 border-emerald-500/20': t.prioridad === 'BAJA'
+                                  }">
+                              {{ t.prioridad }}
+                            </span>
+                          }
+                          @if (t.riesgoDemora) {
+                            <span class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30" title="Riesgo de Demora">⚠️</span>
+                          }
+                          @if (t.esAnomalo) {
+                            <span class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30 shadow-[0_0_8px_rgba(249,115,22,0.5)]" title="Anomalía Detectada por IA">👽 Anómalo</span>
+                          }
+                          <span class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">En Proceso</span>
+                        </div>
                       </div>
                       <p class="text-[11px] text-gray-500 mb-3">Paso activo: {{ getPasoActualNombre(t) }}</p>
                       <div class="flex items-center gap-2">
@@ -127,10 +175,28 @@ import { ToastService } from '../../../shared/toast/toast.service';
                 </div>
                 <div class="flex-1 space-y-3 overflow-y-auto pr-1 pb-4" style="max-height: calc(100vh - 180px)">
                   @for (t of finalizados(); track t.id) {
-                    <div (click)="irADetalle(t)" class="group glass rounded-xl p-4 cursor-pointer hover:border-emerald-500/30 transition-all duration-200 border border-transparent">
+                    <div (click)="irADetalle(t)" class="group glass rounded-xl p-4 cursor-pointer transition-all duration-200 border"
+                         [ngClass]="{
+                            'border-rose-500/50': t.prioridad === 'ALTA',
+                            'border-amber-500/50': t.prioridad === 'MEDIA',
+                            'border-emerald-500/50 hover:border-emerald-400': t.prioridad === 'BAJA',
+                            'border-transparent hover:border-emerald-500/30': !t.prioridad
+                         }">
                       <div class="flex items-start justify-between mb-2">
                         <h4 class="text-sm font-medium text-white group-hover:text-emerald-300 transition-colors">{{ t.nombrePlantilla }}</h4>
-                        <span class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Finalizado</span>
+                        <div class="flex items-center gap-1 flex-wrap justify-end">
+                          @if (t.prioridad) {
+                            <span class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border"
+                                  [ngClass]="{
+                                    'bg-rose-500/10 text-rose-400 border-rose-500/20': t.prioridad === 'ALTA',
+                                    'bg-amber-500/10 text-amber-400 border-amber-500/20': t.prioridad === 'MEDIA',
+                                    'bg-emerald-500/10 text-emerald-400 border-emerald-500/20': t.prioridad === 'BAJA'
+                                  }">
+                              {{ t.prioridad }}
+                            </span>
+                          }
+                          <span class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Finalizado</span>
+                        </div>
                       </div>
                       <p class="text-[11px] text-gray-500 mb-2">Finalizado: {{ formatDate(t.fechaFinalizacion!) }}</p>
                       <div class="flex items-center gap-2">
@@ -190,9 +256,18 @@ export class TramitesKanbanPage implements OnInit {
     return list;
   });
 
-  pendientes = computed(() => this.filteredTramites().filter(t => t.estadoGlobal === 'PENDIENTE'));
-  enProceso = computed(() => this.filteredTramites().filter(t => t.estadoGlobal === 'EN_PROGRESO'));
-  finalizados = computed(() => this.filteredTramites().filter(t => t.estadoGlobal === 'FINALIZADO'));
+  pendientes = computed(() => this.ordenarPorPrioridad(this.filteredTramites().filter(t => t.estadoGlobal === 'PENDIENTE')));
+  enProceso = computed(() => this.ordenarPorPrioridad(this.filteredTramites().filter(t => t.estadoGlobal === 'EN_PROGRESO')));
+  finalizados = computed(() => this.ordenarPorPrioridad(this.filteredTramites().filter(t => t.estadoGlobal === 'FINALIZADO')));
+
+  private ordenarPorPrioridad(tramitesList: TramiteDTO[]): TramiteDTO[] {
+    const orden: Record<string, number> = { 'ALTA': 1, 'MEDIA': 2, 'BAJA': 3 };
+    return [...tramitesList].sort((a, b) => {
+      const pA = orden[a.prioridad || 'MEDIA'] || 4;
+      const pB = orden[b.prioridad || 'MEDIA'] || 4;
+      return pA - pB;
+    });
+  }
 
   ngOnInit() {
     this.loadTramites();
@@ -234,7 +309,7 @@ export class TramitesKanbanPage implements OnInit {
   }
 
   getPasoActualNombre(t: TramiteDTO): string {
-    return t.pasoActualId || 'Desconocido';
+    return (t.pasosActualesIds && t.pasosActualesIds.length > 0) ? t.pasosActualesIds.join(', ') : 'Desconocido';
   }
 
   formatDate(dateStr: string): string {

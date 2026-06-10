@@ -23,7 +23,7 @@ export class WorkflowWebsocketService implements OnDestroy {
   }
 
   private buildWsUrl(): string {
-    const apiUrl = environment.apiUrl; // e.g. https://host/api  OR  http://localhost:8080/api
+    const apiUrl = environment.apiUrl; // e.g. https://host/api
     const url = new URL(apiUrl);
     // Mapear el protocolo HTTP→WS y HTTPS→WSS correctamente
     const wsProtocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
