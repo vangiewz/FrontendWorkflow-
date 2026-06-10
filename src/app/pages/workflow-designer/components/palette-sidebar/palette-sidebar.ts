@@ -52,6 +52,24 @@ import { ToastService } from '../../../../shared/toast/toast.service';
               <div class="w-4 h-4 rounded-sm border-2 border-amber-500 bg-transparent rotate-45 mt-1 mb-1"></div>
               Decisión
             </div>
+            <div 
+              draggable="true"
+              (dragstart)="onDragStart($event, 'Fork')"
+              (click)="onItemClick('Fork')"
+              class="bg-surface-800 border border-surface-700 p-3 rounded-lg text-xs text-center text-gray-300 cursor-grab active:cursor-grabbing hover:border-blue-500 hover:text-blue-400 transition-colors flex flex-col items-center gap-2"
+            >
+              <div class="w-8 h-1.5 rounded-sm bg-blue-500 mt-2 mb-2"></div>
+              Fork (Paralelo)
+            </div>
+            <div 
+              draggable="true"
+              (dragstart)="onDragStart($event, 'Join')"
+              (click)="onItemClick('Join')"
+              class="bg-surface-800 border border-surface-700 p-3 rounded-lg text-xs text-center text-gray-300 cursor-grab active:cursor-grabbing hover:border-indigo-500 hover:text-indigo-400 transition-colors flex flex-col items-center gap-2"
+            >
+              <div class="w-8 h-1.5 rounded-sm bg-indigo-500 mt-2 mb-2"></div>
+              Join (Unir)
+            </div>
           </div>
         </div>
 

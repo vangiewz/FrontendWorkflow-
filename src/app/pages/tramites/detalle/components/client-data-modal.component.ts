@@ -1,5 +1,8 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { S3StorageService } from '../../../../services/s3-storage.service';
+import { AuthService } from '../../../../services/auth.service';
+import { ToastService } from '../../../../shared/toast/toast.service';
 
 @Component({
   selector: 'app-client-data-modal',
@@ -53,16 +56,22 @@ import { CommonModule } from '@angular/common';
                     <h4 class="text-xs text-violet-400 uppercase font-bold tracking-wider mb-3">Datos del Formulario Inicial</h4>
                     <div class="glass p-4 rounded-xl space-y-2 border border-violet-500/10">
                        @for (entry of objectEntries(initialForm); track entry[0]) {
-                          <div class="flex justify-between gap-4 py-1 items-center">
+                          <div class="flex justify-between gap-4 py-2 items-center border-b border-surface-800/50 last:border-0">
                             <span class="text-xs text-gray-400 capitalize">{{ entry[0] }}:</span>
                             @if (isUrl(entry[1])) {
-                               <a [href]="entry[1]" target="_blank" rel="noopener noreferrer" 
-                                  class="text-xs text-violet-400 hover:text-violet-300 font-medium flex items-center gap-1">
-                                 <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                                 Ver Archivo
-                               </a>
+                               <button (click)="descargarArchivo(entry[1])"
+                                  [disabled]="isDownloading"
+                                  class="text-xs px-3 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/20 hover:bg-violet-500/20 text-violet-300 font-medium flex items-center gap-2 transition-colors disabled:opacity-50">
+                                 @if (isDownloading) {
+                                    <div class="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div>
+                                    Descargando...
+                                 } @else {
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                    {{ getFileName(entry[1]) }}
+                                 }
+                               </button>
                             } @else {
-                               <span class="text-xs text-gray-200 text-right font-medium truncate">{{ entry[1] }}</span>
+                               <span class="text-xs text-gray-200 text-right font-medium truncate max-w-[200px]">{{ entry[1] }}</span>
                             }
                           </div>
                        }
@@ -88,8 +97,15 @@ export class ClientDataModalComponent {
   @Input() loading = false;
   @Input() clientInfo: Record<string, any> | null = null;
   @Input() initialForm: Record<string, any> | null = null;
+  @Input() documentos: any[] = [];
   
   @Output() close = new EventEmitter<void>();
+
+  private readonly s3Storage = inject(S3StorageService);
+  private readonly authService = inject(AuthService);
+  private readonly toast = inject(ToastService);
+
+  isDownloading = false;
 
   hasKeys(obj: Record<string, any>): boolean {
     return obj && Object.keys(obj).length > 0;
@@ -100,6 +116,53 @@ export class ClientDataModalComponent {
   }
 
   isUrl(val: any): boolean {
-    return typeof val === 'string' && val.startsWith('http');
+    return typeof val === 'string' && (val.startsWith('http') || val.startsWith('repositorios_clientes/'));
+  }
+
+  isS3Path(val: any): boolean {
+    return typeof val === 'string' && val.startsWith('repositorios_clientes/');
+  }
+
+  getFileName(val: string): string {
+    if (this.isS3Path(val)) {
+       const doc = this.documentos?.find(d => d.rutaS3 === val);
+       if (doc) return doc.nombreOriginal || 'Archivo adjunto';
+       return val.split('/').pop() || 'Archivo adjunto';
+    }
+    return 'Ver Archivo';
+  }
+
+  descargarArchivo(val: string) {
+    if (!this.isS3Path(val)) {
+      window.open(val, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    const doc = this.documentos?.find(d => d.rutaS3 === val);
+    if (!doc) {
+       this.toast.error('Archivo no encontrado en los metadatos.');
+       return;
+    }
+
+    this.isDownloading = true;
+    const user = this.authService.getUser();
+    this.s3Storage.descargarDocumento(doc.archivoId, user?.rol, user?.departamentoId ?? undefined).subscribe({
+      next: (blob) => {
+        this.isDownloading = false;
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = doc.nombreOriginal || 'documento';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        this.toast.success('Archivo descargado correctamente');
+      },
+      error: () => {
+        this.isDownloading = false;
+        this.toast.error('No tienes permisos para descargar este archivo o hubo un error.');
+      }
+    });
   }
 }

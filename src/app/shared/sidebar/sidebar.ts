@@ -85,6 +85,16 @@ import { AuthService } from '../../services/auth.service';
           Gestión de Trámites
         </a>
         <a
+          routerLink="/paquetes/gestion-documental"
+          (click)="onItemClick()"
+          [class.hidden]="userRol() === 'CLIENTE'"
+          routerLinkActive="bg-purple-700/20 text-purple-300 border-purple-700/30 font-medium"
+          class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all duration-200 border border-transparent"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4"/><polyline points="14 2 14 8 20 8"/><path d="M2 15h10"/><path d="M9 18l3-3-3-3"/></svg>
+          Gestión Documental
+        </a>
+        <a
           routerLink="/paquetes/seguridad-acceso"
           (click)="onItemClick()"
           routerLinkActive="bg-purple-700/20 text-purple-300 border-purple-700/30 font-medium"

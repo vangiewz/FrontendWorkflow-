@@ -68,7 +68,7 @@ export const offlineInterceptor: HttpInterceptorFn = (req, next) => {
     }),
     catchError((error: HttpErrorResponse | Error) => {
       const status = (error as HttpErrorResponse)?.status;
-      const isNetworkError = status === 0 || (status >= 500 && status < 600);
+      const isNetworkError = status === 0 || status === 502 || status === 503 || status === 504;
 
       if (isNetworkError) {
         // Trigger probe inmediato para que el servicio actualice isOnline

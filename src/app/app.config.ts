@@ -29,7 +29,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(withFetch(), withInterceptors([offlineInterceptor, authInterceptor])),
+    provideHttpClient(withInterceptors([offlineInterceptor, authInterceptor])),
     provideClientHydration(withEventReplay()),
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),

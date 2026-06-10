@@ -226,7 +226,13 @@ export class JointjsEngineService {
 
       g.setNode('Start', { width: 40, height: 40 });
       g.setNode('Inicio', { width: 160, height: 60 });
-      pasos.forEach(p => g.setNode(p.id, { width: p.tipo === 'DECISION' ? 100 : 160, height: p.tipo === 'DECISION' ? 100 : 60 }));
+      pasos.forEach(p => {
+          let w = 160;
+          let h = 60;
+          if (p.tipo === 'DECISION') { w = 100; h = 100; }
+          if (p.tipo === 'FORK' || p.tipo === 'JOIN') { w = 120; h = 12; }
+          g.setNode(p.id, { width: w, height: h });
+      });
       g.setNode('Notificacion', { width: 160, height: 60 });
       g.setNode('End', { width: 40, height: 40 });
 
@@ -281,7 +287,7 @@ export class JointjsEngineService {
 
       const jointNodes = new Map<string, joint.dia.Element>();
       
-      const createNode = (id: string, deptoId: string, tipo: 'estatico' | 'ACTIVIDAD' | 'DECISION', label: string, color: string) => {
+      const createNode = (id: string, deptoId: string, tipo: 'estatico' | 'ACTIVIDAD' | 'DECISION' | 'FORK' | 'JOIN', label: string, color: string) => {
           const lane = laneMap.get(deptoId) || laneMap.get('Cliente');
           const laneIndex = deptoIds.indexOf(deptoId === 'Cliente' ? 'Cliente' : deptoId || 'Cliente') === -1 ? 0 : deptoIds.indexOf(deptoId === 'Cliente' ? 'Cliente' : deptoId || 'Cliente');
           const dy = g.node(id).y;
@@ -299,6 +305,13 @@ export class JointjsEngineService {
               el.attr({
                   body: { refPoints: '0,50 50,0 100,50 50,100', fill: '#1E293B', stroke: '#F59E0B', strokeWidth: 2, magnet: true },
                   label: { text: joint.util.breakText(label, { width: dw - 20 }), fill: '#F8FAFC', fontSize: 11, refY: '50%', textVerticalAnchor: 'middle', pointerEvents: 'none' }
+              });
+          } else if (tipo === 'FORK' || tipo === 'JOIN') {
+              el = new joint.shapes.standard.Rectangle();
+              el.resize(dw, dh);
+              el.attr({
+                  body: { fill: '#000000', stroke: '#F8FAFC', strokeWidth: 1, rx: 2, ry: 2, magnet: true },
+                  label: { text: '', pointerEvents: 'none' }
               });
           } else if (tipo === 'estatico' && id === 'Start') {
               el = new joint.shapes.standard.Circle();
@@ -366,7 +379,8 @@ export class JointjsEngineService {
               if (paso && paso.siguientes) {
                   // Find exactly which key bridges to this target
                   const actionLabel = Object.keys(paso.siguientes).find(k => paso.siguientes[k] === e.w);
-                  linkFactory(e.v, e.w, actionLabel);
+                  const displayLabel = (actionLabel && actionLabel !== 'default' && !actionLabel.startsWith('path_')) ? actionLabel : undefined;
+                  linkFactory(e.v, e.w, displayLabel);
               } else {
                   linkFactory(e.v, e.w);
               }

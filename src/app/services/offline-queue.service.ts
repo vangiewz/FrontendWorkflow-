@@ -1,7 +1,8 @@
-import { Injectable, inject, signal, PLATFORM_ID } from '@angular/core';
+import { Injectable, inject, signal, PLATFORM_ID, effect } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { ToastService } from '../shared/toast/toast.service';
+import { NetworkStatusService } from './network-status.service';
 
 export interface QueuedRequest {
   id: string;
@@ -26,6 +27,7 @@ export class OfflineQueueService {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly http = inject(HttpClient);
   private readonly toast = inject(ToastService);
+  private readonly networkStatus = inject(NetworkStatusService);
 
   /** Número de operaciones pendientes en la cola */
   private readonly _pendingCount = signal<number>(0);
@@ -40,8 +42,11 @@ export class OfflineQueueService {
     if (isPlatformBrowser(this.platformId)) {
       this.openDb().then(() => this.refreshCount());
 
-      window.addEventListener('online', () => {
-        this.processQueue();
+      // Escuchar cambios reales de red a través del servicio
+      effect(() => {
+        if (this.networkStatus.isOnline()) {
+          this.processQueue();
+        }
       });
     }
   }

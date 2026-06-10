@@ -1,0 +1,98 @@
+.quill-wrapper {
+  background-color: #23232f; /* Fondo oscuro exterior */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 0.5rem;
+  overflow-y: auto;
+  max-height: calc(100vh - 120px);
+  position: relative;
+}
+
+/* ==== SIMULACIÓN DE CINTA DE OPCIONES (RIBBON) DE WORD ==== */
+.quill-wrapper ::ng-deep .ql-toolbar.ql-snow {
+  background-color: #f3f4f6; /* Gris muy claro simulando la barra */
+  border: none;
+  border-bottom: 1px solid #d1d5db;
+  width: 100%;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 8px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.quill-wrapper ::ng-deep .ql-toolbar.ql-snow .ql-formats {
+  margin-right: 12px;
+  padding-right: 12px;
+  border-right: 1px solid #d1d5db;
+  display: flex;
+  align-items: center;
+}
+
+.quill-wrapper ::ng-deep .ql-toolbar.ql-snow button {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.quill-wrapper ::ng-deep .ql-toolbar.ql-snow button:hover,
+.quill-wrapper ::ng-deep .ql-toolbar.ql-snow button.ql-active {
+  background-color: #e5e7eb;
+}
+
+/* ==== SIMULACIÓN DE HOJA A4 ==== */
+.quill-wrapper ::ng-deep quill-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 2rem 0; /* Espacio arriba y abajo de la hoja */
+}
+
+.quill-wrapper ::ng-deep .ql-container.ql-snow {
+  background-color: #ffffff;
+  color: #000000;
+  width: 210mm; /* Ancho exacto A4 */
+  min-height: 297mm; /* Alto exacto A4 */
+  font-family: 'Calibri', 'Arial', sans-serif; 
+  border: 1px solid #d1d5db;
+  border-radius: 2px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  margin: 0 auto;
+}
+
+/* ==== ÁREA EDITABLE DENTRO DE LA HOJA ==== */
+.quill-wrapper ::ng-deep .ql-editor {
+  padding: 2.5cm 3cm; /* Márgenes estándar de Word */
+  font-size: 11pt; /* Tamaño por defecto de Word */
+  line-height: 1.15; /* Interlineado por defecto de Word */
+  min-height: 297mm;
+}
+
+.quill-wrapper ::ng-deep .ql-editor.ql-blank::before {
+  color: #9ca3af;
+  left: 3cm; /* Alineado con el margen izquierdo */
+  font-style: italic;
+}
+
+/* Iconos de la barra */
+.quill-wrapper ::ng-deep .ql-stroke {
+  stroke: #374151;
+}
+.quill-wrapper ::ng-deep .ql-fill {
+  fill: #374151;
+}
+.quill-wrapper ::ng-deep .ql-picker {
+  color: #374151;
+}
+
+/* ==== EXCEL ==== */
+.excel-wrapper {
+  background-color: #ffffff;
+}

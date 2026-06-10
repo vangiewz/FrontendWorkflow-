@@ -2,6 +2,7 @@ import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@ang
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { SidebarComponent } from '../../shared/sidebar/sidebar';
+import { AuthService } from '../../services/auth.service';
 
 export interface PaqueteCard {
   title: string;
@@ -9,6 +10,7 @@ export interface PaqueteCard {
   icon: string;
   route?: string;
   disabled?: boolean;
+  requiredRole?: string | string[];
 }
 
 @Component({
@@ -85,6 +87,7 @@ export interface PaqueteCard {
 })
 export class PaqueteHubPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
+  private readonly authService = inject(AuthService);
 
   mobileSidebarOpen = signal(false);
   title = signal<string>('');
@@ -95,7 +98,19 @@ export class PaqueteHubPage implements OnInit {
     this.route.data.subscribe(data => {
       this.title.set(data['title'] || 'Paquete');
       this.description.set(data['description'] || 'Módulo funcional del sistema.');
-      this.cards.set(data['cards'] || []);
+      
+      const allCards: PaqueteCard[] = data['cards'] || [];
+      const userRole = this.authService.getUser()?.rol || '';
+      
+      const filteredCards = allCards.filter(card => {
+        if (!card.requiredRole) return true;
+        const requiredRoles = Array.isArray(card.requiredRole) ? card.requiredRole : [card.requiredRole];
+        // Asume que a veces el backend envía ROLE_ADMIN o solo ADMIN
+        const userRoleNormalized = userRole.replace('ROLE_', '');
+        return requiredRoles.some(r => r.replace('ROLE_', '') === userRoleNormalized);
+      });
+      
+      this.cards.set(filteredCards);
     });
   }
 

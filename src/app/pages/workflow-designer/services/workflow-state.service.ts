@@ -227,22 +227,30 @@ export class WorkflowStateService {
     let isDecision = false;
     let newStepName = 'Nueva Actividad';
     
+    let nodeTipo: 'ACTIVIDAD' | 'DECISION' | 'FORK' | 'JOIN' = 'ACTIVIDAD';
+    
     if (type === 'Decisión') {
-      isDecision = true;
+      nodeTipo = 'DECISION';
       newStepName = 'Decisión';
     } else if (type === 'Actividad') {
-      isDecision = false;
+      nodeTipo = 'ACTIVIDAD';
+    } else if (type === 'Fork') {
+      nodeTipo = 'FORK';
+      newStepName = 'Fork';
+    } else if (type === 'Join') {
+      nodeTipo = 'JOIN';
+      newStepName = 'Join';
     } else {
-      // If it's not Actividad or Decisión, it's a lane (departamento ID)
+      // If it's not a node type, it's a lane (departamento ID)
       targetDeptoId = type === 'Cliente' ? null : type;
     }
 
     copy.push({
       id: newId,
-      tipo: isDecision ? 'DECISION' : 'ACTIVIDAD',
+      tipo: nodeTipo,
       departamentoId: targetDeptoId,
       nombrePaso: newStepName,
-      formularioJson: isDecision ? null : {},
+      formularioJson: nodeTipo === 'ACTIVIDAD' ? {} : null,
       siguientes: {}
     });
 
