@@ -1,6 +1,7 @@
 import { Injectable, inject, signal, PLATFORM_ID, effect } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Subject } from 'rxjs';
 import { ToastService } from '../shared/toast/toast.service';
 import { NetworkStatusService } from './network-status.service';
 
@@ -12,6 +13,7 @@ export interface QueuedRequest {
   headers: Record<string, string>;
   timestamp: number;
   description: string;
+  responseType?: 'arraybuffer' | 'blob' | 'json' | 'text';
 }
 
 const DB_NAME = 'wf-offline-queue';
@@ -38,15 +40,23 @@ export class OfflineQueueService {
 
   private db: IDBDatabase | null = null;
 
+  /** Subject para emitir resultados de sincronización exitosa/fallida */
+  public syncCompleted$ = new Subject<{ success: boolean, request: QueuedRequest, response?: any, error?: any }>();
+
   constructor() {
     if (isPlatformBrowser(this.platformId)) {
       this.openDb().then(() => this.refreshCount());
 
-      // Escuchar cambios reales de red a través del servicio
+      // Escuchar cambios de red a través de signals
       effect(() => {
         if (this.networkStatus.isOnline()) {
           this.processQueue();
         }
+      });
+
+      // Respaldo nativo por si el signal no gatilla adecuadamente
+      window.addEventListener('online', () => {
+        setTimeout(() => this.processQueue(), 2000);
       });
     }
   }
@@ -83,7 +93,8 @@ export class OfflineQueueService {
     method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     body: any,
     headers: Record<string, string>,
-    description: string
+    description: string,
+    responseType: 'arraybuffer' | 'blob' | 'json' | 'text' = 'json'
   ): Promise<void> {
     if (!isPlatformBrowser(this.platformId)) return;
 
@@ -92,10 +103,11 @@ export class OfflineQueueService {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       url,
       method,
-      body: body ? JSON.stringify(body) : null,
+      body: body ? (typeof body === 'string' ? body : JSON.stringify(body)) : null,
       headers,
       timestamp: Date.now(),
-      description
+      description,
+      responseType
     };
 
     return new Promise((resolve, reject) => {
@@ -178,8 +190,15 @@ export class OfflineQueueService {
 
     for (const item of items) {
       try {
-        const httpHeaders = new HttpHeaders(item.headers);
-        const options = { headers: httpHeaders };
+        // Reconstruimos los headers originales y añadimos una bandera
+        // para que el offlineInterceptor deje pasar esta petición sin volver a encolarla
+        const httpHeaders = new HttpHeaders(item.headers).set('X-Skip-Offline-Interceptor', 'true');
+
+        const options: any = { 
+          headers: httpHeaders,
+          observe: 'response',
+          responseType: item.responseType || 'json'
+        };
 
         let body: any = null;
         if (item.body) {
@@ -207,14 +226,23 @@ export class OfflineQueueService {
               break;
           }
 
+          if (!request$) {
+            resolve();
+            return;
+          }
+
           request$.subscribe({
-            next: () => resolve(),
+            next: (res: any) => {
+              this.syncCompleted$.next({ success: true, request: item, response: res });
+              resolve();
+            },
             error: (err: any) => {
               // Si es error de red, detenemos el procesamiento
               if (!navigator.onLine || err.status === 0) {
                 reject(err);
               } else {
-                // Error del servidor (4xx, 5xx) — eliminamos de la cola igualmente
+                // Error del servidor (4xx, 5xx) — notificamos y eliminamos
+                this.syncCompleted$.next({ success: false, request: item, error: err });
                 resolve();
               }
             }

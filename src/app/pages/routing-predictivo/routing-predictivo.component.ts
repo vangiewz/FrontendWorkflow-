@@ -6,6 +6,7 @@ import { ButtonComponent } from '../../shared/button/button';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { SidebarComponent } from '../../shared/sidebar/sidebar';
+import { ToastService } from '../../shared/toast/toast.service';
 
 interface SimulationResult {
   prioridad: string;
@@ -204,6 +205,7 @@ export class RoutingPredictivoComponent {
   mobileSidebarOpen = signal<boolean>(false);
 
   private http = inject(HttpClient);
+  private toast = inject(ToastService);
 
   toggleMobileSidebar() {
     this.mobileSidebarOpen.update(v => !v);
@@ -221,11 +223,14 @@ export class RoutingPredictivoComponent {
       datosCliente: {}
     };
 
-    this.http.post<SimulationResult>(`${environment.apiUrl}/workflows/ai/routing/simulate`, payload)
+    this.http.post<any>(`${environment.apiUrl}/workflows/ai/routing/simulate`, payload)
       .subscribe({
         next: (res) => {
-          this.result.set(res);
           this.isLoading.set(false);
+          if (res.queued) {
+            return;
+          }
+          this.result.set(res);
         },
         error: (err) => {
           console.error(err);

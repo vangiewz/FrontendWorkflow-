@@ -3,13 +3,9 @@
 
   <div class="flex-1 flex flex-col min-w-0 relative">
     <header class="h-16 border-b border-surface-800 bg-surface-900/50 backdrop-blur-sm flex items-center justify-between px-6 shrink-0 z-10 sticky top-0">
-      <div class="flex items-center gap-4">
-        <button class="lg:hidden text-gray-400 hover:text-white p-2" (click)="toggleMobileSidebar()" aria-label="Abrir menú">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
-        </button>
-        <button routerLink="/paquetes/configuracion-ia" class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-          <span class="font-medium hidden sm:inline">Volver a Configuración</span>
+      <div class="flex items-center">
+        <button routerLink="/paquetes/configuracion-ia" class="flex items-center justify-center p-2 text-gray-400 hover:text-white hover:bg-surface-800 rounded-full transition-colors" aria-label="Volver">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
         </button>
       </div>
       <h2 class="text-lg font-semibold text-white tracking-wide truncate">Generador de Reportes IA</h2>
@@ -37,8 +33,11 @@
 
         <div class="chat-messages flex-1" #scrollMe>
           <div *ngFor="let msg of messages" [ngClass]="{'message-row': true, 'user': msg.role === 'user', 'ia': msg.role === 'ia'}">
-            <div class="message-bubble">
+            <div class="message-bubble flex items-center justify-between">
               <div class="bubble-content" [innerHTML]="msg.content"></div>
+              <ng-container *ngIf="msg.isPending">
+                 <span class="text-xs opacity-50 ml-2" title="Pendiente de sincronizar">⏳</span>
+              </ng-container>
             </div>
           </div>
 
@@ -53,6 +52,12 @@
 
         <div class="chat-input-area shrink-0">
           <div class="input-wrapper">
+            @if (networkStatus.isOffline()) {
+              <div class="text-xs text-amber-400 mb-2 font-medium px-2 flex items-center gap-2">
+                <span>⚠️</span>
+                Modo offline: tu mensaje se procesará automáticamente al recuperar la conexión.
+              </div>
+            }
             <textarea 
               [(ngModel)]="userInput" 
               (keydown)="handleKeyDown($event)"

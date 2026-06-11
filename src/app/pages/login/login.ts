@@ -231,6 +231,12 @@ export class LoginPage {
     this.isLoading.set(true);
     this.errorMessage.set('');
 
+    if (!navigator.onLine) {
+       this.isLoading.set(false);
+       this.errorMessage.set('No tienes conexión a internet para iniciar sesión. Por favor, revisa tu conexión e inténtalo de nuevo.');
+       return;
+    }
+
     const { email, password } = this.loginForm.getRawValue();
 
     this.authService.login({ email, password }).subscribe({

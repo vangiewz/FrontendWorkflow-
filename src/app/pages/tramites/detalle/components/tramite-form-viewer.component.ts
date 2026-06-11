@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ToastService } from '../../../../shared/toast/toast.service';
 import { environment } from '../../../../environments/environment';
+import { AuthService } from '../../../../services/auth.service';
 
 @Component({
   selector: 'app-tramite-form-viewer',
@@ -415,6 +416,50 @@ import { environment } from '../../../../environments/environment';
                 {{ isSubmitting ? 'Procesando...' : 'Completar Paso' }}
               </button>
             }
+
+            @if (getDocumentosAdicionales().length > 0) {
+               <div class="mt-6 border-t border-surface-700/50 pt-4">
+                  <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Gestión Documental (Otros Archivos)</h3>
+                  <div class="space-y-3">
+                     @for (doc of getDocumentosAdicionales(); track doc.archivoId) {
+                        <div class="flex items-center justify-between bg-surface-800 border border-surface-700 p-3 rounded-xl shadow-sm">
+                           <div class="flex items-center gap-3 overflow-hidden">
+                              <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                                   [class.bg-emerald-500/20]="!doc.esColaborativo"
+                                   [class.bg-blue-500/20]="doc.esColaborativo && doc.formato === 'WORD'"
+                                   [class.bg-emerald-500/20]="doc.esColaborativo && doc.formato === 'EXCEL'">
+                                 @if (!doc.esColaborativo) {
+                                   <svg class="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                 } @else if (doc.formato === 'WORD') {
+                                   <svg class="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M19.1 2H4.9C3.3 2 2 3.3 2 4.9v14.2C2 20.7 3.3 22 4.9 22h14.2c1.6 0 2.9-1.3 2.9-2.9V4.9C22 3.3 20.7 2 19.1 2zM15.8 17.6h-1.5l-1.9-6-1.9 6H9l-2.6-9.4h1.6l1.7 6.9 2-6.9h1.5l2 6.9 1.7-6.9h1.6l-2.7 9.4z"/></svg>
+                                 } @else {
+                                   <svg class="w-5 h-5 text-emerald-400" fill="currentColor" viewBox="0 0 24 24"><path d="M19.1 2H4.9C3.3 2 2 3.3 2 4.9v14.2C2 20.7 3.3 22 4.9 22h14.2c1.6 0 2.9-1.3 2.9-2.9V4.9C22 3.3 20.7 2 19.1 2zM16.3 16.7h-1.7l-2.2-3.8-2.3 3.8H8.4l3.1-5-2.9-4.8h1.7l2 3.5 2.1-3.5h1.7l-3 4.9 3.2 4.9z"/></svg>
+                                 }
+                              </div>
+                              <div class="flex flex-col overflow-hidden">
+                                 <button (click)="descargarArchivo(doc)" class="text-sm font-medium text-gray-200 hover:text-purple-400 truncate transition-colors cursor-pointer border-none bg-transparent p-0 text-left">{{ doc.nombreOriginal || 'Documento Adjunto' }}</button>
+                                 <div class="flex items-center gap-2 mt-0.5">
+                                    <span class="text-[10px] text-gray-500 font-mono">Versión {{ doc.version || 1 }}</span>
+                                    <span class="text-[10px] px-1.5 rounded-sm bg-surface-700 text-gray-400 capitalize">{{ doc.campoKey }}</span>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="flex items-center gap-2 shrink-0">
+                              @if (historialMap[doc.campoKey] && historialMap[doc.campoKey].length > 0) {
+                                 <button (click)="abrirHistorial(doc.campoKey)" class="text-xs px-3 py-1.5 rounded-lg bg-surface-700 text-gray-300 hover:bg-surface-600 transition-colors border border-surface-600">Historial</button>
+                              }
+                              @if (doc.esColaborativo) {
+                                 <button (click)="emitAbrirDocumentoExistente(doc)" class="text-xs px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-colors border border-purple-500/30">
+                                    Abrir
+                                 </button>
+                              }
+                           </div>
+                        </div>
+                     }
+                  </div>
+               </div>
+            }
+
           </div>
         }
       }
@@ -491,6 +536,7 @@ export class TramiteFormViewerComponent implements OnChanges {
   private readonly toast = inject(ToastService);
   private readonly http = inject(HttpClient);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly authService = inject(AuthService);
 
   private speechRecognition: {
     lang: string;
@@ -595,6 +641,50 @@ export class TramiteFormViewerComponent implements OnChanges {
       format: field.format || 'WORD',
       permisos: field.permisosPorDefecto || {}
     });
+  }
+
+  emitAbrirDocumentoExistente(doc: any) {
+    this.abrirDocumento.emit({
+      key: doc.campoKey,
+      type: 'DOCUMENTO_COLABORATIVO',
+      format: doc.formato || 'WORD',
+      permisos: doc.permisos || {}
+    });
+  }
+
+  getDocumentosAdicionales(): any[] {
+    if (!this.documentos) return [];
+    
+    // keys ya mostrados en el formulario actual
+    const keysEnFormulario = this.formFields.map(f => f.key);
+    
+    const user = this.authService.getUser();
+    if (!user) return [];
+    
+    const result: any[] = [];
+    
+    for (const key of Object.keys(this.uploadedFiles)) {
+      if (keysEnFormulario.includes(key)) continue; // ya está en el form actual
+      
+      const doc = this.uploadedFiles[key];
+      
+      // Chequear permisos
+      let hasAccess = false;
+      if (user.rol === 'ADMIN' || user.rol === 'CLIENTE') {
+         hasAccess = true;
+      } else {
+         const deptoPerm = doc.permisos ? doc.permisos[user.departamentoId || ''] : null;
+         const rolPerm = doc.permisos ? doc.permisos[user.rol || ''] : null;
+         if (deptoPerm === 'LECTURA' || deptoPerm === 'EDICION' || deptoPerm === 'AMBAS') hasAccess = true;
+         if (rolPerm === 'LECTURA' || rolPerm === 'EDICION' || rolPerm === 'AMBAS') hasAccess = true;
+      }
+      
+      if (hasAccess) {
+         result.push(doc);
+      }
+    }
+    
+    return result;
   }
 
   solicitarAsistenciaChat() {

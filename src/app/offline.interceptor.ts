@@ -45,6 +45,12 @@ export const offlineInterceptor: HttpInterceptorFn = (req, next) => {
   const url = req.url;
   const method = req.method.toUpperCase();
 
+  // ─── EVITAR RE-ENCOLAMIENTO DE PETICIONES REINTENTADAS ──────────────────
+  if (req.headers.has('X-Skip-Offline-Interceptor')) {
+    const cloned = req.clone({ headers: req.headers.delete('X-Skip-Offline-Interceptor') });
+    return next(cloned);
+  }
+
   // ─── OFFLINE: el heartbeat ya detectó que no hay internet ──────────────────
   if (networkStatus.isOffline()) {
     return handleOffline(
@@ -119,7 +125,7 @@ function handleOffline(
     if (ct) headers['Content-Type'] = ct;
 
     queue
-      .enqueue(url, method as any, req.body ?? null, headers, describeRequest(url, method))
+      .enqueue(url, method as any, req.body ?? null, headers, describeRequest(url, method), req.responseType)
       .then(() => toast.info('Operación guardada — se enviará al reconectar'));
 
     return of(new HttpResponse({ status: 202, body: { queued: true, offline: true } }));

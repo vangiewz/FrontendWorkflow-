@@ -14,7 +14,7 @@ import { ToastService } from '../../../../shared/toast/toast.service';
       <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center animate-fadeIn p-4" (click)="close.emit()">
         
         <!-- Modal Panel -->
-        <div class="w-full max-w-md bg-surface-900 border border-surface-700/50 rounded-2xl shadow-2xl flex flex-col pointer-events-auto" (click)="$event.stopPropagation()">
+        <div class="w-full max-w-md bg-surface-900 border border-surface-700/50 rounded-2xl shadow-2xl flex flex-col pointer-events-auto max-h-[90vh]" (click)="$event.stopPropagation()">
           
           <div class="p-6 border-b border-surface-800 flex items-center justify-between">
              <div class="flex items-center gap-3">
@@ -28,7 +28,7 @@ import { ToastService } from '../../../../shared/toast/toast.service';
              </button>
           </div>
 
-          <div class="p-6 space-y-4">
+          <div class="p-6 space-y-4 overflow-y-auto custom-scrollbar">
             @if (loading) {
                <div class="flex justify-center p-4">
                   <div class="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
@@ -36,17 +36,17 @@ import { ToastService } from '../../../../shared/toast/toast.service';
             } @else if (clientInfo) {
                <!-- Ficha de Contacto Principal -->
                <div class="p-4 bg-surface-800 rounded-xl space-y-3">
-                  <div class="flex justify-between border-b border-surface-700 pb-2 border-dashed">
-                     <span class="text-xs text-gray-500 uppercase font-bold tracking-wider">Nombre</span>
-                     <span class="text-sm text-gray-200 font-medium">{{ clientInfo['nombre'] || 'N/A' }}</span>
+                  <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-surface-700 pb-2 border-dashed gap-1 sm:gap-4">
+                     <span class="text-xs text-gray-500 uppercase font-bold tracking-wider whitespace-nowrap flex-shrink-0">Nombre</span>
+                     <span class="text-sm text-gray-200 font-medium sm:text-right break-words">{{ clientInfo['nombre'] || 'N/A' }}</span>
                   </div>
-                  <div class="flex justify-between border-b border-surface-700 pb-2 border-dashed">
-                     <span class="text-xs text-gray-500 uppercase font-bold tracking-wider">Correo</span>
-                     <span class="text-sm text-gray-200">{{ clientInfo['email'] || 'N/A' }}</span>
+                  <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-surface-700 pb-2 border-dashed gap-1 sm:gap-4">
+                     <span class="text-xs text-gray-500 uppercase font-bold tracking-wider whitespace-nowrap flex-shrink-0">Correo</span>
+                     <span class="text-sm text-gray-200 sm:text-right break-all sm:break-words">{{ clientInfo['email'] || 'N/A' }}</span>
                   </div>
-                  <div class="flex justify-between">
-                     <span class="text-xs text-gray-500 uppercase font-bold tracking-wider">Teléfono</span>
-                     <span class="text-sm text-gray-200">{{ clientInfo['telefono'] || 'N/A' }}</span>
+                  <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-4">
+                     <span class="text-xs text-gray-500 uppercase font-bold tracking-wider whitespace-nowrap flex-shrink-0">Teléfono</span>
+                     <span class="text-sm text-gray-200 sm:text-right">{{ clientInfo['telefono'] || 'N/A' }}</span>
                   </div>
                </div>
                
@@ -56,24 +56,34 @@ import { ToastService } from '../../../../shared/toast/toast.service';
                     <h4 class="text-xs text-violet-400 uppercase font-bold tracking-wider mb-3">Datos del Formulario Inicial</h4>
                     <div class="glass p-4 rounded-xl space-y-2 border border-violet-500/10">
                        @for (entry of objectEntries(initialForm); track entry[0]) {
-                          <div class="flex justify-between gap-4 py-2 items-center border-b border-surface-800/50 last:border-0">
-                            <span class="text-xs text-gray-400 capitalize">{{ entry[0] }}:</span>
-                            @if (isUrl(entry[1])) {
-                               <button (click)="descargarArchivo(entry[1])"
-                                  [disabled]="isDownloading"
-                                  class="text-xs px-3 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/20 hover:bg-violet-500/20 text-violet-300 font-medium flex items-center gap-2 transition-colors disabled:opacity-50">
-                                 @if (isDownloading) {
-                                    <div class="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div>
-                                    Descargando...
-                                 } @else {
-                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                                    {{ getFileName(entry[1]) }}
-                                 }
-                               </button>
-                            } @else {
-                               <span class="text-xs text-gray-200 text-right font-medium truncate max-w-[200px]">{{ entry[1] }}</span>
-                            }
-                          </div>
+                          @if (!isS3Path(entry[1]) || canViewFile(entry[1])) {
+                             <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-4 py-2 border-b border-surface-800/50 last:border-0">
+                               <span class="text-xs text-gray-400 capitalize whitespace-nowrap flex-shrink-0">{{ entry[0] }}:</span>
+                               @if (isUrl(entry[1])) {
+                                  <button (click)="descargarArchivo(entry[1])"
+                                     [disabled]="isDownloading"
+                                     class="text-xs px-3 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/20 hover:bg-violet-500/20 text-violet-300 font-medium flex items-center gap-2 transition-colors disabled:opacity-50 w-fit max-w-full">
+                                    @if (isDownloading) {
+                                       <div class="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+                                       <span class="whitespace-nowrap">Descargando...</span>
+                                    } @else {
+                                       <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                       <span class="truncate">{{ getFileName(entry[1]) }}</span>
+                                    }
+                                  </button>
+                               } @else {
+                                  <span class="text-xs text-gray-200 sm:text-right font-medium break-words w-full sm:w-auto">{{ entry[1] }}</span>
+                               }
+                             </div>
+                          } @else {
+                             <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-4 py-2 border-b border-surface-800/50 last:border-0">
+                               <span class="text-xs text-gray-400 capitalize whitespace-nowrap flex-shrink-0">{{ entry[0] }}:</span>
+                               <span class="text-xs text-gray-500 italic flex items-center gap-1">
+                                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                  Sin acceso
+                               </span>
+                             </div>
+                          }
                        }
                     </div>
                   </div>
@@ -121,6 +131,26 @@ export class ClientDataModalComponent {
 
   isS3Path(val: any): boolean {
     return typeof val === 'string' && val.startsWith('repositorios_clientes/');
+  }
+
+  canViewFile(val: string): boolean {
+    const doc = this.documentos?.find(d => d.rutaS3 === val);
+    if (!doc) return true; // Si no hay doc metadatos, no podemos restringir
+    if (!doc.permisos || Object.keys(doc.permisos).length === 0) return true; // Sin permisos explícitos
+
+    const user = this.authService.getUser();
+    if (!user) return false;
+
+    // Admin o Cliente (asumiendo que el cliente dueño ve sus propios documentos)
+    if (user.rol === 'ADMIN' || user.rol === 'CLIENTE') return true;
+
+    const deptoPerm = doc.permisos[user.departamentoId || ''];
+    const rolPerm = doc.permisos[user.rol || ''];
+
+    if (deptoPerm === 'LECTURA' || deptoPerm === 'EDICION' || deptoPerm === 'AMBAS') return true;
+    if (rolPerm === 'LECTURA' || rolPerm === 'EDICION' || rolPerm === 'AMBAS') return true;
+
+    return false;
   }
 
   getFileName(val: string): string {

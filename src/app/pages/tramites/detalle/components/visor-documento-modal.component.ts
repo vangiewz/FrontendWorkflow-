@@ -1,6 +1,11 @@
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { VisorDocumentoComponent } from '../../components/visor-documento/visor-documento.component';
+import { NetworkStatusService } from '../../../../services/network-status.service';
+import { ToastService } from '../../../../shared/toast/toast.service';
+import { environment } from '../../../../environments/environment';
+
+declare var luckysheet: any;
 
 @Component({
   selector: 'app-visor-documento-modal',
@@ -25,7 +30,12 @@ import { VisorDocumentoComponent } from '../../components/visor-documento/visor-
                 </svg>
               </div>
               <div>
-                <h3 class="text-base font-bold text-white tracking-wide">Editor Colaborativo</h3>
+                <h3 class="text-base font-bold text-white tracking-wide flex items-center gap-2">
+                  Editor Colaborativo
+                  @if (networkStatus.isOffline()) {
+                    <span class="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/30 uppercase tracking-wider">Modo Offline</span>
+                  }
+                </h3>
                 <p class="text-xs text-purple-300">Sala en Tiempo Real • {{ formato }}</p>
               </div>
             </div>
@@ -73,18 +83,25 @@ export class VisorDocumentoModalComponent {
 
   @ViewChild('visorComponent') visorComponent!: VisorDocumentoComponent;
 
+  constructor(public networkStatus: NetworkStatusService, private toast: ToastService) {}
+
   guardarYCerrar() {
     if (this.visorComponent) {
       const saveObs = this.visorComponent.finalizarEdicion();
       if (saveObs) {
         saveObs.subscribe({
-          next: (res) => {
-            // Emitimos la metadata realzada proveniente del servidor (que ya tiene nueva versión o url)
-            this.guardado.emit(res);
+          next: (res: any) => {
+            if (res?.queued) {
+               this.toast.warning('Guardado como Borrador Pendiente localmente. Se sincronizará al reconectar.');
+            } else {
+               this.toast.success('Cambios guardados correctamente.');
+               this.guardado.emit(res);
+            }
             this.close.emit();
           },
           error: (err) => {
-            alert('❌ Error crítico al intentar guardar el documento.');
+            this.toast.error('Error al guardar los cambios.');
+            console.error(err);
           }
         });
       } else {

@@ -5,6 +5,8 @@ import { ButtonComponent } from '../../shared/button/button';
 import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
+import { OfflineQueueService } from '../../services/offline-queue.service';
+import { ToastService } from '../../shared/toast/toast.service';
 
 interface TramiteSLA {
   id: string;
@@ -254,10 +256,20 @@ export class SlaDashboardComponent implements OnInit {
   newlyEscalatedIds = signal<Set<string>>(new Set());
 
   private http = inject(HttpClient);
+  private offlineQueue = inject(OfflineQueueService);
+  private toast = inject(ToastService);
 
   ngOnInit() {
     this.loadEscalated();
     this.loadAnomalies();
+    
+    // Escuchar cuando vuelva online para actualizar la lista de SLA
+    this.offlineQueue.syncCompleted$.subscribe(event => {
+       if (event.request.url.includes('/force-sla-check') && event.success) {
+          this.loadEscalated();
+          this.toast.success('El motor SLA se ejecutó en segundo plano exitosamente.');
+       }
+    });
   }
 
   toggleMobileSidebar() {
@@ -296,17 +308,20 @@ export class SlaDashboardComponent implements OnInit {
     this.isChecking.set(true);
     this.successMessage.set('');
     
-    this.http.post<{message: string, escalatedCount: number, tramites: TramiteSLA[]}>(`${environment.apiUrl}/workflows/ai/routing/force-sla-check`, {})
+    this.http.post<{message?: string, escalatedCount?: number, tramites?: TramiteSLA[], queued?: boolean}>(`${environment.apiUrl}/workflows/ai/routing/force-sla-check`, {})
       .subscribe({
         next: (res) => {
           this.isChecking.set(false);
-          this.successMessage.set(res.message);
+          if (res.queued) {
+             return;
+          }
+          this.successMessage.set(res.message || '');
           
           const oldIds = new Set(this.tramitesSLA().map(t => t.id));
-          const newIds = new Set(res.tramites.map(t => t.id).filter(id => !oldIds.has(id)));
+          const newIds = new Set<string>((res.tramites || []).map((t: TramiteSLA) => t.id).filter((id: string) => !oldIds.has(id)));
           
           this.newlyEscalatedIds.set(newIds);
-          this.tramitesSLA.set(res.tramites);
+          this.tramitesSLA.set(res.tramites || []);
 
           setTimeout(() => this.successMessage.set(''), 25000);
           setTimeout(() => this.newlyEscalatedIds.set(new Set()), 5000);

@@ -1,14 +1,17 @@
-import { Component, ElementRef, ViewChild, ChangeDetectorRef, OnInit, OnDestroy, signal } from '@angular/core';
+import { Component, ElementRef, ViewChild, ChangeDetectorRef, OnInit, OnDestroy, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { SidebarComponent } from '../../../shared/sidebar/sidebar';
 import { environment } from '../../../environments/environment';
+import { OfflineQueueService } from '../../../services/offline-queue.service';
+import { NetworkStatusService } from '../../../services/network-status.service';
 
 interface ChatMessage {
   role: 'user' | 'ia';
   content: string;
+  isPending?: boolean;
 }
 
 @Component({
@@ -29,6 +32,9 @@ export class ChatReportComponent implements OnInit, OnDestroy {
   mobileSidebarOpen = signal(false);
 
   private apiUrl = environment.aiUrl + '/workflows/ai/reports/chat';
+  public offlineQueue = inject(OfflineQueueService);
+  public networkStatus = inject(NetworkStatusService);
+  private syncSubscription: any;
 
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
 
@@ -38,11 +44,32 @@ export class ChatReportComponent implements OnInit, OnDestroy {
       content: '¡Hola! Soy tu asistente para generar reportes dinámicos. ¿Qué datos te gustaría visualizar hoy? (Ej: "Quiero un Excel con todos los trámites finalizados de Juan")'
     });
     this.initSpeechRecognition();
+
+    this.syncSubscription = this.offlineQueue.syncCompleted$.subscribe(event => {
+      if (event.request.url.includes('/workflows/ai/reports/chat')) {
+        const pendingMsg = this.messages.find(m => m.isPending);
+        if (pendingMsg) {
+          pendingMsg.isPending = false;
+        }
+        
+        if (event.success && event.response) {
+           this.procesarRespuestaChat(event.response);
+        } else {
+           this.messages.push({ role: 'ia', content: 'Hubo un error al procesar tu reporte guardado sin conexión.' });
+           this.isLoading = false;
+           this.scrollToBottom();
+           this.cdr.detectChanges();
+        }
+      }
+    });
   }
 
   ngOnDestroy() {
     if (this.recognition) {
       this.recognition.stop();
+    }
+    if (this.syncSubscription) {
+      this.syncSubscription.unsubscribe();
     }
   }
 
@@ -100,65 +127,24 @@ export class ChatReportComponent implements OnInit, OnDestroy {
   sendMessage() {
     if (!this.userInput.trim()) return;
 
-    this.messages.push({ role: 'user', content: this.userInput.trim() });
-    const currentInput = this.userInput;
+    const currentInput = this.userInput.trim();
     this.userInput = '';
+
+    this.messages.push({ role: 'user', content: currentInput });
     this.isLoading = true;
     this.scrollToBottom();
 
     const requestBody = {
       historial: this.messages
+        .filter(m => m.role === 'user' || (m.role === 'ia' && !m.content.includes('error al procesar')))
+        .map(m => ({ role: m.role, content: m.content }))
     };
 
     this.http.post(this.apiUrl, requestBody, {
       observe: 'response',
       responseType: 'blob'
     }).subscribe({
-      next: (response: any) => {
-        this.isLoading = false;
-        const contentType = response.headers.get('content-type') || '';
-
-        if (contentType.includes('application/json')) {
-          // Es un JSON (Faltan datos)
-          const reader = new FileReader();
-          reader.onload = () => {
-            try {
-              const resJson = JSON.parse(reader.result as string);
-              if (resJson.estado === 'INCOMPLETO') {
-                this.messages.push({ role: 'ia', content: resJson.mensaje_usuario });
-              } else if (resJson.error) {
-                this.messages.push({ role: 'ia', content: `Error: ${resJson.error}` });
-              }
-              this.scrollToBottom();
-              this.cdr.detectChanges();
-            } catch (e) {
-              console.error("Error parseando JSON", e);
-            }
-          };
-          reader.readAsText(response.body);
-        } else {
-          // Es un archivo binario
-          this.messages.push({ role: 'ia', content: '¡Reporte generado! Tu descarga debería comenzar en breve.' });
-          
-          let fileName = 'reporte';
-          const contentDisposition = response.headers.get('content-disposition');
-          if (contentDisposition && contentDisposition.includes('filename=')) {
-            fileName = contentDisposition.split('filename=')[1].trim();
-          }
-
-          const url = window.URL.createObjectURL(response.body);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          a.remove();
-          
-          this.scrollToBottom();
-          this.cdr.detectChanges();
-        }
-      },
+      next: (response: any) => this.procesarRespuestaChat(response),
       error: (err) => {
         this.isLoading = false;
         this.messages.push({ role: 'ia', content: 'Ocurrió un error al procesar tu solicitud.' });
@@ -167,6 +153,63 @@ export class ChatReportComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       }
     });
+  }
+
+  procesarRespuestaChat(response: any) {
+    if (response.status === 202 && response.body?.queued) {
+       this.isLoading = false;
+       const lastUserMsg = [...this.messages].reverse().find(m => m.role === 'user');
+       if (lastUserMsg) lastUserMsg.isPending = true;
+       this.scrollToBottom();
+       this.cdr.detectChanges();
+       return;
+    }
+
+    this.isLoading = false;
+    const contentType = response.headers?.get('content-type') || response.headers?.['content-type'] || '';
+
+    if (contentType.includes('application/json')) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const resJson = JSON.parse(reader.result as string);
+          if (resJson.estado === 'INCOMPLETO') {
+            this.messages.push({ role: 'ia', content: resJson.mensaje_usuario });
+          } else if (resJson.error) {
+            this.messages.push({ role: 'ia', content: `Error: ${resJson.error}` });
+          }
+          this.scrollToBottom();
+          this.cdr.detectChanges();
+        } catch (e) {
+          console.error("Error parseando JSON", e);
+        }
+      };
+      try {
+         reader.readAsText(response.body);
+      } catch (err) {
+         console.error('readAsText error:', err);
+      }
+    } else {
+      this.messages.push({ role: 'ia', content: '¡Reporte generado! Tu descarga debería comenzar en breve.' });
+      
+      let fileName = 'reporte';
+      const contentDisposition = response.headers?.get('content-disposition') || response.headers?.['content-disposition'];
+      if (contentDisposition && contentDisposition.includes('filename=')) {
+        fileName = contentDisposition.split('filename=')[1].trim();
+      }
+
+      const url = window.URL.createObjectURL(response.body);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+      
+      this.scrollToBottom();
+      this.cdr.detectChanges();
+    }
   }
 
   handleKeyDown(event: KeyboardEvent) {
