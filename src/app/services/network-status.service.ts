@@ -71,13 +71,19 @@ export class NetworkStatusService implements OnDestroy {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 3000); // 3s timeout
 
-      await fetch('https://www.google.com/generate_204', {
+      // ngsw-bypass=true evita que el Service Worker intercepte esta petición y devuelva un 504 falso
+      const response = await fetch(`https://www.google.com/generate_204?ngsw-bypass=true&t=${Date.now()}`, {
         method: 'HEAD',
         mode: 'no-cors',   // No necesitamos leer respuesta, solo saber si conecta
         cache: 'no-store',
         signal: controller.signal
       });
       clearTimeout(timer);
+
+      // Si el Service Worker llega a devolver un error 50x (debería estar bypasseado, pero por si acaso)
+      if (response.status >= 500) {
+         throw new Error('Service Worker synthetic response or Gateway error');
+      }
 
       this.zone.run(() => this.setOnline());
     } catch {
