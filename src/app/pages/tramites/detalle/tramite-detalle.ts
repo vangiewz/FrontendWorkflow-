@@ -1,12 +1,14 @@
-import { Component, ChangeDetectionStrategy, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, OnInit, signal, computed, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { AsistenteFormularioResponse, TramiteService, TramiteDTO } from '../../../services/tramite.service';
 import { WorkflowService, PasoGenerado, PlantillaWorkflowDTO } from '../../../services/workflow.service';
 import { DepartamentoService, Departamento } from '../../../services/departamento.service';
 import { AuthService } from '../../../services/auth.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { UsuarioService } from '../../../services/usuario.service';
+import { OfflineQueueService } from '../../../services/offline-queue.service';
 
 import { TramiteTimelineComponent } from './components/tramite-timeline.component';
 import { TramiteFormViewerComponent } from './components/tramite-form-viewer.component';
@@ -136,7 +138,7 @@ import { VisorDocumentoModalComponent } from './components/visor-documento-modal
     </div>
   `
 })
-export class TramiteDetallePage implements OnInit {
+export class TramiteDetallePage implements OnInit, OnDestroy {
   private readonly tramiteService = inject(TramiteService);
   private readonly workflowService = inject(WorkflowService);
   private readonly deptoService = inject(DepartamentoService);
@@ -145,6 +147,9 @@ export class TramiteDetallePage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly toast = inject(ToastService);
+  private readonly offlineQueue = inject(OfflineQueueService);
+
+  private syncSub?: Subscription;
 
   tramite = signal<TramiteDTO | null>(null);
   plantilla = signal<PlantillaWorkflowDTO | null>(null);
@@ -211,6 +216,21 @@ export class TramiteDetallePage implements OnInit {
       this.loadTramite(id);
     }
     this.deptoService.getDepartamentos().subscribe(d => this.departamentos.set(d));
+
+    this.syncSub = this.offlineQueue.syncCompleted$.subscribe(event => {
+      if (event.request.url.includes('asistir-formulario') && event.success && event.response?.body) {
+        const sugerencia = event.response.body.sugerencia;
+        const observacion = event.response.body.observacion;
+        if (sugerencia) {
+          this.aiPrefill.set(sugerencia);
+          this.toast.success('✨ ' + (observacion || 'Formulario rellenado automáticamente tras recuperar la conexión.'));
+        }
+      }
+    });
+  }
+
+  ngOnDestroy() {
+    this.syncSub?.unsubscribe();
   }
 
   private loadTramite(id: string) {
@@ -424,9 +444,14 @@ export class TramiteDetallePage implements OnInit {
         mensaje: event.mensaje
       })
       .subscribe({
-        next: (response: AsistenteFormularioResponse) => {
+        next: (response: any) => {
           this.aiPrefill.set(response.sugerencia ?? {});
           this.isAssisting.set(false);
+
+          if (response.offline) {
+            this.toast.warning('⏳ Petición IA encolada. Se rellenará mágicamente al recuperar conexión.');
+            return;
+          }
 
           if (response.observacion) {
             this.toast.success(response.observacion);

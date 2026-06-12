@@ -11,7 +11,6 @@ import { ToastService } from './shared/toast/toast.service';
 const AI_ENDPOINTS = [
   '/ai/generate',
   '/ai/assist',
-  '/asistir-formulario',
   '/analytics/cuellos-botella'
 ];
 
