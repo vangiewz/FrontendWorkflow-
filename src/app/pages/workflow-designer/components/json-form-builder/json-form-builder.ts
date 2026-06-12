@@ -96,8 +96,24 @@ export interface FormFieldItem {
           @if (field.type === 'select') {
             <div class="mt-2.5 p-3 bg-surface-950/60 border border-surface-800 rounded-lg space-y-2">
               <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">Opciones del Selector</span>
-              <p class="text-[9px] text-gray-500 leading-tight mb-1">Separadas por coma (,)</p>
-              <input type="text" [ngModel]="field.opciones?.join(', ')" (ngModelChange)="updateSelectOptions(fieldIndex, $event)" class="w-full bg-surface-800 border border-surface-700 rounded p-1.5 text-xs text-gray-200 focus:ring-1 focus:ring-emerald-500 focus:outline-none placeholder-gray-600" placeholder="Ej. Opción 1, Opción 2, Opción 3">
+              
+              @for (opt of field.opciones || []; track $index; let optIdx = $index) {
+                <div class="flex gap-2 items-center bg-surface-900 p-2 rounded border border-surface-800/80">
+                  <div class="flex-1 min-w-0">
+                    <input type="text" [ngModel]="opt" (ngModelChange)="updateOption(fieldIndex, optIdx, $event)"
+                           class="w-full bg-surface-800 border border-surface-700 rounded p-1.5 text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500" placeholder="Nombre de la opción">
+                  </div>
+                  <button class="text-red-400 hover:text-red-300 p-1 shrink-0" (click)="removeOption(fieldIndex, optIdx)" title="Eliminar opción">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  </button>
+                </div>
+              }
+              
+              <button class="py-1.5 px-3 border border-dashed border-emerald-500/20 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/5 rounded text-[10px] font-semibold transition-all uppercase flex items-center justify-center gap-1.5 w-full mt-2"
+                      (click)="addOption(fieldIndex)">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Añadir Opción
+              </button>
             </div>
           }
 
@@ -483,9 +499,43 @@ export class JsonFormBuilderComponent {
     this.emitChanges();
   }
 
-  updateSelectOptions(fieldIndex: number, eventStr: string) {
-    const opts = eventStr.split(',').map(s => s.trim()).filter(s => s);
-    this.updateField(fieldIndex, {opciones: opts.length > 0 ? opts : ['Opción 1']});
+  updateOption(fieldIndex: number, optIdx: number, value: string) {
+    this.fields.update(fields => {
+      const newFields = [...fields];
+      const field = { ...newFields[fieldIndex] };
+      const opts = [...(field.opciones || [])];
+      opts[optIdx] = value;
+      field.opciones = opts;
+      newFields[fieldIndex] = field;
+      return newFields;
+    });
+    this.emitChanges();
+  }
+
+  addOption(fieldIndex: number) {
+    this.fields.update(fields => {
+      const newFields = [...fields];
+      const field = { ...newFields[fieldIndex] };
+      const opts = [...(field.opciones || [])];
+      opts.push(`Opción ${opts.length + 1}`);
+      field.opciones = opts;
+      newFields[fieldIndex] = field;
+      return newFields;
+    });
+    this.emitChanges();
+  }
+
+  removeOption(fieldIndex: number, optIdx: number) {
+    this.fields.update(fields => {
+      const newFields = [...fields];
+      const field = { ...newFields[fieldIndex] };
+      const opts = (field.opciones || []).filter((_, i) => i !== optIdx);
+      // Ensure at least one option remains, or empty array if they really want
+      field.opciones = opts;
+      newFields[fieldIndex] = field;
+      return newFields;
+    });
+    this.emitChanges();
   }
 
   emitChanges() {

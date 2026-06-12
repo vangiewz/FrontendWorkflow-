@@ -239,15 +239,20 @@ interface PaletteItem {
               <!-- Advanced Properties for SELECT -->
               @if (selectedField.type === 'select') {
                 <div class="mt-6 pt-4 border-t border-surface-800 space-y-3">
-                  <h4 class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block mb-1">Opciones del Selector</h4>
-                  <p class="text-[9px] text-gray-500 leading-tight">Escribe las opciones separadas por comas (,)</p>
-                  <textarea 
-                    [ngModel]="selectedField.opciones?.join(', ')" 
-                    (ngModelChange)="updateSelectOptions($event)" 
-                    rows="3"
-                    class="w-full bg-surface-800 border border-surface-700 rounded-md p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    placeholder="Opción 1, Opción 2, Opción 3"
-                  ></textarea>
+                  <h4 class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block mb-2">Opciones del Selector</h4>
+                  
+                  @for (opt of selectedField.opciones || []; track $index; let optIdx = $index) {
+                    <div class="flex items-center gap-2 bg-surface-800 p-2 rounded-md border border-surface-700 relative group/opt">
+                      <input type="text" [ngModel]="opt" (ngModelChange)="updateOption(optIdx, $event)" class="w-full bg-surface-900 border border-surface-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-emerald-500" placeholder="Nombre de la opción">
+                      <button class="w-6 h-6 bg-red-500/10 hover:bg-red-500 rounded text-red-400 hover:text-white flex items-center justify-center transition-colors shrink-0" (click)="removeOption(optIdx)">
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  }
+                  
+                  <button class="w-full py-2 border border-dashed border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 rounded-md text-[10px] font-bold uppercase transition-colors mt-2" (click)="addOption()">
+                    + Añadir Opción
+                  </button>
                 </div>
               }
 
@@ -438,9 +443,38 @@ export class DragDropFormBuilderComponent {
     this.fields.set(list);
   }
 
-  updateSelectOptions(optionsStr: string) {
-    const opts = optionsStr.split(',').map(s => s.trim()).filter(s => s);
-    this.updateSelectedField({opciones: opts.length > 0 ? opts : ['Opción 1']});
+  updateOption(optIdx: number, value: string) {
+    const idx = this.selectedIndex();
+    if (idx === null) return;
+    const list = [...this.fields()];
+    const field = { ...list[idx] };
+    const opts = [...(field.opciones || [])];
+    opts[optIdx] = value;
+    field.opciones = opts;
+    list[idx] = field;
+    this.fields.set(list);
+  }
+
+  addOption() {
+    const idx = this.selectedIndex();
+    if (idx === null) return;
+    const list = [...this.fields()];
+    const field = { ...list[idx] };
+    const opts = [...(field.opciones || [])];
+    opts.push(`Opción ${opts.length + 1}`);
+    field.opciones = opts;
+    list[idx] = field;
+    this.fields.set(list);
+  }
+
+  removeOption(optIdx: number) {
+    const idx = this.selectedIndex();
+    if (idx === null) return;
+    const list = [...this.fields()];
+    const field = { ...list[idx] };
+    field.opciones = (field.opciones || []).filter((_, i) => i !== optIdx);
+    list[idx] = field;
+    this.fields.set(list);
   }
 
   addGridColumn() {
