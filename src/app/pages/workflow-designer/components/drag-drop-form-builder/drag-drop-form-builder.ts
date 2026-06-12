@@ -138,6 +138,11 @@ interface PaletteItem {
                             <div class="w-5 h-5 border border-surface-700 rounded bg-surface-900/50"></div>
                           } @else if (field.type === 'date' || field.type === 'datetime') {
                             <div class="w-48 h-8 border border-surface-700 rounded bg-surface-900/50 flex items-center px-2 text-gray-600"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>
+                          } @else if (field.type === 'select') {
+                            <div class="w-full h-8 border border-surface-700 rounded bg-surface-900/50 flex items-center justify-between px-2 text-gray-600">
+                              <span class="text-xs">Seleccione...</span>
+                              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                            </div>
                           } @else if (field.type === 'grid') {
                             <div class="w-full border border-surface-700 rounded bg-surface-900/50 overflow-hidden">
                               <div class="h-6 border-b border-surface-700 bg-surface-800 flex items-center px-2 gap-2">
@@ -231,6 +236,21 @@ interface PaletteItem {
                 </div>
               }
 
+              <!-- Advanced Properties for SELECT -->
+              @if (selectedField.type === 'select') {
+                <div class="mt-6 pt-4 border-t border-surface-800 space-y-3">
+                  <h4 class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block mb-1">Opciones del Selector</h4>
+                  <p class="text-[9px] text-gray-500 leading-tight">Escribe las opciones separadas por comas (,)</p>
+                  <textarea 
+                    [ngModel]="selectedField.opciones?.join(', ')" 
+                    (ngModelChange)="updateSelectOptions($event)" 
+                    rows="3"
+                    class="w-full bg-surface-800 border border-surface-700 rounded-md p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    placeholder="Opción 1, Opción 2, Opción 3"
+                  ></textarea>
+                </div>
+              }
+
               <!-- Advanced Properties for FILES -->
               @if (selectedField.type === 'ARCHIVO_ESTATICO' || selectedField.type === 'DOCUMENTO_COLABORATIVO') {
                 <div class="mt-6 pt-4 border-t border-surface-800 space-y-4">
@@ -320,6 +340,7 @@ export class DragDropFormBuilderComponent {
     { type: 'string', label: 'Texto', icon: '📝' },
     { type: 'number', label: 'Número', icon: '1️⃣' },
     { type: 'boolean', label: 'Checkbox', icon: '✅' },
+    { type: 'select', label: 'Selector', icon: '🔽' },
     { type: 'date', label: 'Fecha', icon: '📅' },
     { type: 'datetime', label: 'Fecha y Hora', icon: '⏱️' },
     { type: 'grid', label: 'Grid / Tabla', icon: '📊' },
@@ -371,6 +392,8 @@ export class DragDropFormBuilderComponent {
         newField.gridColumns = [
           { key: 'col_1', label: 'Columna 1', type: 'string' }
         ];
+      } else if (newField.type === 'select') {
+        newField.opciones = ['Opción 1', 'Opción 2'];
       } else if (newField.type === 'ARCHIVO_ESTATICO') {
         newField.formatosPermitidos = ['.pdf', '.jpg'];
         newField.tamanoMaximoMB = 5;
@@ -413,6 +436,11 @@ export class DragDropFormBuilderComponent {
     const list = [...this.fields()];
     list[idx] = { ...list[idx], ...changes };
     this.fields.set(list);
+  }
+
+  updateSelectOptions(optionsStr: string) {
+    const opts = optionsStr.split(',').map(s => s.trim()).filter(s => s);
+    this.updateSelectedField({opciones: opts.length > 0 ? opts : ['Opción 1']});
   }
 
   addGridColumn() {

@@ -17,13 +17,14 @@ export interface PermissionSetting {
 
 export interface FormFieldItem {
   key: string;
-  type: string; // string, number, boolean, date, datetime, file, grid, ARCHIVO_ESTATICO, DOCUMENTO_COLABORATIVO
+  type: string; // string, number, boolean, date, datetime, file, grid, ARCHIVO_ESTATICO, DOCUMENTO_COLABORATIVO, select
   description: string;
   isRequired: boolean;
   gridColumns?: GridColumn[];
   formatosPermitidos?: string[];
   tamanoMaximoMB?: number;
   permisosPorDefecto?: PermissionSetting[];
+  opciones?: string[];
 }
 
 @Component({
@@ -74,6 +75,7 @@ export interface FormFieldItem {
                  <option value="boolean">Verdadero / Falso (Checkbox)</option>
                  <option value="date">Fecha</option>
                  <option value="datetime">Fecha y Hora</option>
+                 <option value="select">Selector / Desplegable</option>
                  <option value="grid">Grid (Tabla Dinámica)</option>
                  <option value="ARCHIVO_ESTATICO">Archivo Estático</option>
                  <option value="DOCUMENTO_COLABORATIVO">Documento Colaborativo</option>
@@ -90,6 +92,14 @@ export interface FormFieldItem {
              <input type="checkbox" [ngModel]="field.isRequired" (ngModelChange)="updateField(fieldIndex, {isRequired: $event})" class="w-3.5 h-3.5 rounded border-surface-600 text-emerald-500 bg-surface-800 focus:ring-emerald-500 focus:ring-offset-surface-900 cursor-pointer">
              <label class="text-xs text-gray-400 cursor-pointer" (click)="updateField(fieldIndex, {isRequired: !field.isRequired})">Establecer como obligatorio</label>
           </div>
+
+          @if (field.type === 'select') {
+            <div class="mt-2.5 p-3 bg-surface-950/60 border border-surface-800 rounded-lg space-y-2">
+              <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">Opciones del Selector</span>
+              <p class="text-[9px] text-gray-500 leading-tight mb-1">Separadas por coma (,)</p>
+              <input type="text" [ngModel]="field.opciones?.join(', ')" (ngModelChange)="updateSelectOptions(fieldIndex, $event)" class="w-full bg-surface-800 border border-surface-700 rounded p-1.5 text-xs text-gray-200 focus:ring-1 focus:ring-emerald-500 focus:outline-none placeholder-gray-600" placeholder="Ej. Opción 1, Opción 2, Opción 3">
+            </div>
+          }
 
           @if (field.type === 'grid') {
             <div class="mt-2.5 p-3 bg-surface-950/60 border border-surface-800 rounded-lg space-y-2">
@@ -283,6 +293,7 @@ export class JsonFormBuilderComponent {
         let fieldType = props[k]?.type || 'string';
         if (fieldType === 'string' && props[k]?.format === 'date') fieldType = 'date';
         if (fieldType === 'string' && props[k]?.format === 'date-time') fieldType = 'datetime';
+        if (fieldType === 'string' && props[k]?.enum) fieldType = 'select';
         
         let gridCols: GridColumn[] = [];
         if (fieldType === 'array' || fieldType === 'grid') {
@@ -318,7 +329,8 @@ export class JsonFormBuilderComponent {
            gridColumns: gridCols.length > 0 ? gridCols : undefined,
            permisosPorDefecto: permisosList && permisosList.length > 0 ? permisosList : undefined,
            formatosPermitidos: props[k]?.formatosPermitidos || undefined,
-           tamanoMaximoMB: props[k]?.tamanoMaximoMB || undefined
+           tamanoMaximoMB: props[k]?.tamanoMaximoMB || undefined,
+           opciones: props[k]?.enum || undefined
         };
      });
      
@@ -343,6 +355,9 @@ export class JsonFormBuilderComponent {
          field.gridColumns = [
            { key: 'columna1', label: 'Columna 1', type: 'string' }
          ];
+      }
+      if (field.type === 'select' && (!field.opciones || field.opciones.length === 0)) {
+         field.opciones = ['Opción 1', 'Opción 2'];
       }
       if (field.type === 'ARCHIVO_ESTATICO' && (!field.permisosPorDefecto || field.permisosPorDefecto.length === 0)) {
          field.permisosPorDefecto = [
@@ -468,6 +483,11 @@ export class JsonFormBuilderComponent {
     this.emitChanges();
   }
 
+  updateSelectOptions(fieldIndex: number, eventStr: string) {
+    const opts = eventStr.split(',').map(s => s.trim()).filter(s => s);
+    this.updateField(fieldIndex, {opciones: opts.length > 0 ? opts : ['Opción 1']});
+  }
+
   emitChanges() {
     this.isInternalChange = true;
     const f = this.fields();
@@ -498,12 +518,15 @@ export class JsonFormBuilderComponent {
               title: col.label || safeColKey
             };
           });
-          prop.items = {
-            type: 'object',
-            properties: colProperties
-          };
-        } else if (item.type === 'ARCHIVO_ESTATICO' || item.type === 'DOCUMENTO_COLABORATIVO') {
-          prop.type = item.type;
+            prop.items = {
+              type: 'object',
+              properties: colProperties
+            };
+          } else if (item.type === 'select') {
+            prop.type = 'string';
+            prop.enum = item.opciones && item.opciones.length > 0 ? item.opciones : ['Opción 1'];
+          } else if (item.type === 'ARCHIVO_ESTATICO' || item.type === 'DOCUMENTO_COLABORATIVO') {
+            prop.type = item.type;
           const mapPermisos: any = {};
           (item.permisosPorDefecto || []).forEach(p => {
              if (p.role) {
