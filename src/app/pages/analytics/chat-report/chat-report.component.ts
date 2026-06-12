@@ -140,7 +140,14 @@ export class ChatReportComponent implements OnInit, OnDestroy {
         .map(m => ({ role: m.role, content: m.content }))
     };
 
-    this.http.post(this.apiUrl, requestBody, {
+    let targetUrl = this.apiUrl;
+    if (!this.networkStatus.isOnline()) {
+      targetUrl = 'http://localhost:8000/api/workflows/ai/reports/chat';
+      console.log('Modo sin conexión activado: Redirigiendo petición a localhost...');
+    }
+
+    this.http.post(targetUrl, requestBody, {
+      headers: { 'X-Skip-Offline-Interceptor': 'true' },
       observe: 'response',
       responseType: 'blob'
     }).subscribe({
