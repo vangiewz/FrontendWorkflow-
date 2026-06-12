@@ -148,13 +148,34 @@ export class VisorDocumentoComponent implements OnInit, OnDestroy {
          this.ngZone.run(() => {
            if (!delta) return;
 
-           // Al conectar exitosamente, emitir REQUEST_STATE inmediatamente
+           // Al conectar exitosamente, para mostrar "sincronización offline" sobreescribimos a los demás
            if (delta.type === '_INTERNAL_CONNECTED_') {
-              console.log('📣 Conexión establecida. Solicitando REQUEST_STATE a la sala...');
-              this.socketService.enviarDelta(this.tramiteId, this.archivoMetadata.archivoId, {
-                type: 'REQUEST_STATE',
-                sender: this.sessionId
-              });
+              console.log('📣 Conexión establecida. Empujando estado local para sobreescribir a la sala (Hack Offline)...');
+              
+              let currentContent = '';
+              if (this.formato === 'WORD') {
+                if (this.quillEditorRef && this.quillEditorRef.quillEditor) {
+                  currentContent = this.quillEditorRef.quillEditor.root.innerHTML;
+                } else {
+                  currentContent = this.contenidoWord;
+                }
+                if (currentContent && currentContent.trim() !== '') {
+                  this.socketService.enviarDelta(this.tramiteId, this.archivoMetadata.archivoId, {
+                    type: 'DELTA',
+                    sender: this.sessionId,
+                    content: currentContent
+                  });
+                }
+              } else if (this.formato === 'EXCEL' && typeof luckysheet !== 'undefined') {
+                currentContent = JSON.stringify(luckysheet.getAllSheets());
+                if (currentContent && currentContent !== '[]') {
+                  this.socketService.enviarDelta(this.tramiteId, this.archivoMetadata.archivoId, {
+                    type: 'EXCEL_DELTA',
+                    sender: this.sessionId,
+                    content: currentContent
+                  });
+                }
+              }
               return;
            }
 
