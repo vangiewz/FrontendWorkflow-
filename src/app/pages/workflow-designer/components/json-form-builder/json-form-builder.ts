@@ -2,6 +2,7 @@ import { Component, ChangeDetectionStrategy, input, output, signal, effect, inje
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms'; // Using ngModel for simple databinding here
 import { WorkflowStateService } from '../../services/workflow-state.service';
+import { DragDropFormBuilderComponent } from '../drag-drop-form-builder/drag-drop-form-builder';
 
 export interface GridColumn {
   key: string;
@@ -28,10 +29,23 @@ export interface FormFieldItem {
 @Component({
   selector: 'app-json-form-builder',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DragDropFormBuilderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="flex flex-col gap-3">
+      
+      <button class="w-full py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-xs font-bold tracking-wide transition-all shadow-md flex items-center justify-center gap-2 mb-2" (click)="showVisualBuilder.set(true)">
+        <span class="text-base">✨</span> Abrir Constructor Visual (Drag & Drop)
+      </button>
+
+      @if (showVisualBuilder()) {
+        <app-drag-drop-form-builder 
+          [initialFields]="fields()" 
+          (saveFields)="onVisualBuilderSave($event)" 
+          (closeModal)="showVisualBuilder.set(false)">
+        </app-drag-drop-form-builder>
+      }
+
       @if (fields().length === 0) {
         <div class="text-center p-4 border border-dashed border-surface-700 rounded-lg text-gray-500 text-xs">
           No hay campos definidos.
@@ -237,6 +251,7 @@ export class JsonFormBuilderComponent {
   schemaChange = output<any>();
 
   fields = signal<FormFieldItem[]>([]);
+  showVisualBuilder = signal(false);
   isInternalChange = false;
   private lastSerializedSchema = '';
 
@@ -528,5 +543,11 @@ export class JsonFormBuilderComponent {
 
     this.lastSerializedSchema = JSON.stringify(newSchema);
     this.schemaChange.emit(newSchema);
+  }
+
+  onVisualBuilderSave(newFields: FormFieldItem[]) {
+    this.fields.set(newFields);
+    this.emitChanges();
+    this.showVisualBuilder.set(false);
   }
 }
